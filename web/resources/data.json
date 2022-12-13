@@ -1,0 +1,29 @@
+{
+  "meshes": [
+    {
+      "name": "portalegre",
+      "url": "./resources/meshes/portalegre.obj",
+      "texture": "portalegre"
+    },
+    {
+      "name": "road",
+      "url": "./resources/meshes/road.obj",
+      "texture": "road"
+    }
+  ],
+  "images": [
+    {
+      "name": "portalegre",
+      "url": "./resources/images/texture_portalegre.png"
+    },
+    {
+      "name": "road",
+      "url": "./resources/images/texture_road.png"
+    },
+    {
+      "name": "null",
+      "url": "./resources/images/texture_null.png"
+    }
+  ],
+  "audios": []
+}
