@@ -8,7 +8,7 @@
 
 ## Features
 
-- OBJ model loader (mesh only)
+- OBJ model loader (mesh data only)
 - Z-buffering
 - Flat shading (directional lighting)
 - Wireframe, shaded and textured render modes
@@ -17,11 +17,11 @@
 
 Run index.html on localhost, no dependencies needed.
 
-## Try out different models
+## Trying out different models
 
 Open the `/web/resources/data.json` file and add/edit your new object (name, url, texture). Also include/edit your new texture (name, url).
 
-Next, open the `script.js` file, change the Demo class and add your new model to the scene (line 50).
+Next, open the `script.js` file, change the Demo class to add your new model to the scene (line 50).
 
 ## Development
 
