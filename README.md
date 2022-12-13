@@ -1,6 +1,6 @@
 # **Gizmo Engine** _(wasm)_
 
-![picture alt](http://... "Gizmo engine readme placeholder")
+![picture alt](https://raw.githubusercontent.com/brunoperry/gizmo_wasm/abb66453287b98c92e93509901a187b34347bade/placeholder.png "Gizmo engine readme placeholder")
 
 ## About
 
@@ -15,7 +15,7 @@
 
 ## Test it
 
-Just run index.html on localhost, no dependencies needed.
+Run index.html on localhost, no dependencies needed.
 
 ## Try out different models
 
