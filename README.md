@@ -37,6 +37,7 @@ A lot of them. The most noticable being:
 
 - x clipping.
 - Frame rate below 60.
+- Camera not working properly (using eulars).
 - ...
 
 Have fun!
