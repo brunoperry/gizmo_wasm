@@ -149,6 +149,7 @@ export class UI {
     pause_icon.style.display = "none";
     if (is_playing) {
       pause_icon.style.display = "initial";
+      this.#crosshair.style.visibility = "initial";
       this.#play_pause_btn.className = "toggled-red";
       this.#crosshair.style.scale = "1";
       this.log_console("Playing... use mouse and WASD, (esc) to exit.");

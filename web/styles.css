@@ -176,6 +176,7 @@ button:active {
   position: absolute;
   width: 32px;
   mix-blend-mode: difference;
+  visibility: hidden;
   opacity: 0;
   transition: scale calc(var(--speed) * 0.2) ease-out;
 }
@@ -244,6 +245,7 @@ button.toggled {
 }
 
 .invisible {
+  visibility: hidden;
   pointer-events: none;
   opacity: 0;
 }
