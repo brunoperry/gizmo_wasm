@@ -64,7 +64,7 @@ body {
 
 canvas {
   background-color: transparent;
-  background-image: url("gizmo_logo_simple.svg");
+  background-image: url("resources/images/gizmo_logo_simple.svg");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 30%;
