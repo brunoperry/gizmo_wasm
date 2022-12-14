@@ -41,8 +41,8 @@ A lot of them. The most noticable being:
 
 - x clipping.
 - Frame rate below 60.
-- Camera not working properly _(using eulars)_.
-- "Monkey Pressing" play/pause button messes with cursor lock.
+- Camera not working properly.
+- "Monkey Pressing" play/pause button messes with cursor lock _(UI)_.
 - ...
 
 Have fun!
