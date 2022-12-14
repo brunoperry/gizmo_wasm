@@ -19,7 +19,7 @@
 
 ## Test it
 
-Run index.html on localhost, no dependencies needed.
+Clone the repo and run index.html on localhost, no dependencies needed.
 
 ## Trying out different models
 
