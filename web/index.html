@@ -21,7 +21,7 @@
         <label>Tris: <span id="tris"></span></label>
       </div>
       <div id="render-modes">
-        <button id="wireframe">
+        <button id="wireframe" aria-label="wireframe">
           <svg
             width="100%"
             height="100%"
@@ -44,7 +44,7 @@
             />
           </svg>
         </button>
-        <button id="shaded">
+        <button id="shaded" aria-label="shaded">
           <svg width="100%" height="100%" viewBox="0 0 88 92">
             <path
               fill="#ccc"
@@ -60,7 +60,7 @@
             />
           </svg>
         </button>
-        <button id="textured" class="toggled">
+        <button id="textured" class="toggled" aria-label="textured">
           <?xml version="1.0" encoding="UTF-8" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
           <svg width="100%" height="100%" viewBox="0 0 88 92">
             <path
@@ -93,14 +93,14 @@
     </svg>
 
     <div id="controls" class="invisible">
-      <button id="previous" style="display: none">
+      <button id="previous" style="display: none" aria-label="previous">
         <svg width="100%" height="100%" viewBox="0 0 78 92" fill="var(--color-d)">
           <path
             d="M77.203,0l-48.281,28.494l-0,-28.494l-28.922,0l-0,91.299l28.922,0l-0,-28.666l48.281,28.494l0,-91.127Z"
           />
         </svg>
       </button>
-      <button id="playpause">
+      <button id="playpause" aria-label="playpause">
         <svg
           id="icon-play"
           width="100%"
@@ -123,12 +123,12 @@
           />
         </svg>
       </button>
-      <button id="stop" style="display: none">
+      <button id="stop" style="display: none" aria-label="stop">
         <svg width="100%" height="100%" viewBox="0 0 78 92" fill="var(--color-d)">
           <rect id="stop" x="0" y="0" width="77.203" height="91.299" />
         </svg>
       </button>
-      <button id="next" style="display: none">
+      <button id="next" style="display: none" aria-label="next">
         <svg width="100%" height="100%" viewBox="0 0 78 92" fill="var(--color-d)">
           <path
             d="M48.281,28.666l-48.281,-28.494l0,91.127l48.281,-28.494l0,28.494l28.922,0l0,-91.299l-28.922,0l0,28.666Z"
