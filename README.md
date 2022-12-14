@@ -42,6 +42,7 @@ A lot of them. The most noticable being:
 - x clipping.
 - Frame rate below 60.
 - Camera not working properly (using eulars).
+- "Monkey Pressing" play/pause button messes with cursor lock.
 - ...
 
 Have fun!
