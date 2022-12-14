@@ -1,7 +1,6 @@
 import Resources from "./src/Resources.js";
 import Engine from "./src/Engine.js";
 import Scene from "./src/Scene.js";
-import { vec3 } from "./src/math.js";
 import { UI } from "./src/UI.js";
 
 /**
