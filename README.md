@@ -21,7 +21,7 @@
 
 Clone the repo and run index.html on localhost, no dependencies needed.
 
-## Trying out different models
+## Playing with different models
 
 Open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_.
 
