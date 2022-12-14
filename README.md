@@ -29,7 +29,7 @@ Next, open the `script.js` file, change the Demo class to add your new model to 
 
 ## Development
 
-Make sure you have wasi installed then update your `.makefile --sysroot` directory accordingly _(line 9)_.
+To compile your C code/changes, make sure you have wasi installed then update your `.makefile --sysroot` directory accordingly _(line 9)_.
 
 - WASI -> **_[https://wasi.dev](https://wasi.dev "https://wasi.dev")_**
 
