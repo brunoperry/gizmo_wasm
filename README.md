@@ -13,7 +13,7 @@
 - Flat shading _(directional lighting)_
 - Wireframe, shaded and textured render modes
 
-## Check it
+## Check it out
 
 **[https://brunoperry.github.io/gizmo_wasm/web/](https://brunoperry.github.io/gizmo_wasm/web/ "https://brunoperry.github.io/gizmo_wasm/web/")**
 
