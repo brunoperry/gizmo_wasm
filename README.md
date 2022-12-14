@@ -13,6 +13,10 @@
 - Flat shading (directional lighting)
 - Wireframe, shaded and textured render modes
 
+## Check it
+
+**[https://brunoperry.github.io/gizmo_wasm/web/](https://brunoperry.github.io/gizmo_wasm/web/ "https://brunoperry.github.io/gizmo_wasm/web/")**
+
 ## Test it
 
 Run index.html on localhost, no dependencies needed.
@@ -25,7 +29,7 @@ Next, open the `script.js` file, change the Demo class to add your new model to 
 
 ## Development
 
-Make sure you have wasi installed then update your .makefile --sysroot directory (line 9).
+Make sure you have wasi installed then update your .makefile --sysroot directory accordingly (line 9).
 
 - WASI -> **_[https://wasi.dev](https://wasi.dev "https://wasi.dev")_**
 
