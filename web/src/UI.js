@@ -177,7 +177,7 @@ export class UI {
     }
   }
   set_scene_memory(mem) {
-    this.#mem_label.innerText = `~${(mem / 1000 / 1000).toFixed(2)}mb`;
+    this.#mem_label.innerText = `~${Math.round(mem / 1000 / 1000)}mb`;
   }
 
   #check_is_ready() {

@@ -92,13 +92,22 @@ button:active {
 #hud {
   display: grid;
   grid-template-areas:
-    'scene scene'
+    'scene meminfo'
     'counter rendermode';
   grid-template-columns: auto 50%;
   grid-template-rows: 32px 96px;
   align-items: flex-end;
   gap: var(--gap);
   transition: opacity var(--speed) ease-in-out;
+}
+
+#mem-info {
+  display: block;
+  grid-area: meminfo;
+  color: var(--color-d);
+  justify-self: flex-end;
+  align-self: center;
+  opacity: 0.5;
 }
 
 #counters {
@@ -250,6 +259,13 @@ button.toggled {
 
   #hud {
     padding: 0 var(--gap);
+    grid-template-areas:
+      'scene scene'
+      'counter rendermode';
+  }
+
+  #mem-info {
+    display: none;
   }
 
   #counters {
