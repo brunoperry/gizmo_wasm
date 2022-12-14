@@ -9,6 +9,7 @@ import { UI } from "./src/UI.js";
 const ui = new UI((e) => {
   switch (e.action) {
     case UI.Actions.PLAY_PAUSE:
+      engine.unlock = true;
       engine.is_running ? engine.stop() : engine.play();
       break;
     case UI.Actions.RENDER_MODE:

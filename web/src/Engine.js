@@ -13,6 +13,9 @@ export default class Engine {
     READY: 4,
   };
 
+  //debug purposes
+  #locked = true;
+
   #wasm = null;
   #display = null;
   #audio = null;
@@ -96,7 +99,10 @@ export default class Engine {
   set render_mode(val) {
     this.#display.render_mode = val;
     this.#wasm.update();
-    this.#display.update();
+
+    //debug purposes, clear the if statment for production
+    if (!this.#locked) this.#display.update();
+
     this.#listener(Engine.States.MODE_CHANGED);
   }
 
@@ -111,5 +117,13 @@ export default class Engine {
   }
   get fps() {
     return this.#current_fps;
+  }
+
+  //debug purposes
+  get unlock() {
+    return this.#locked;
+  }
+  set unlock(val) {
+    this.#locked = !val;
   }
 }
