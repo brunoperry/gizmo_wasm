@@ -388,59 +388,40 @@ void draw_line(int x0, int y0, int x1, int y1, int color)
 
 void apply_fisheye()
 {
-    int w = display.width;
-    int h = display.height;
+    int x, y;
+    float center_x = (float)display.width / 2.0f;
+    float center_y = (float)display.height / 2.0f;
+    float distance, theta, r;
 
-    // create the result data
-    unsigned int dstpixels[display.bytes_length];
+    float k = 0.000002;
 
-    // for each row
-    for (int y = 0; y < h; y++)
+    unsigned int dest[display.bytes_length];
+
+    for (y = 0; y < display.height; y++)
     {
-        // normalize y coordinate to -1 ... 1
-        double ny = ((2 * y) / h) - 1;
-        // pre calculate ny*ny
-        double ny2 = ny * ny;
-        // for each column
-        for (int x = 0; x < w; x++)
+        for (x = 0; x < display.width; x++)
         {
-            // normalize x coordinate to -1 ... 1
-            double nx = ((2 * x) / w) - 1;
-            // pre calculate nx*nx
-            double nx2 = nx * nx;
-            // calculate distance from center (0,0)
-            // this will include circle or ellipse shape portion
-            // of the image, depending on image dimensions
-            // you can experiment with images with different dimensions
-            double r = sqrt(nx2 + ny2);
-            // discard pixels outside from circle!
-            if (0.0 <= r && r <= 1.0)
+            // Calculate distance from center
+            distance = sqrt((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
+            // Calculate angle from center
+            theta = g_aTan2((float)y - center_y, (float)x - center_x);
+            // Calculate distorted radius
+            r = distance * (1.0f + k * distance * distance);
+            // Calculate distorted coordinates
+            int x_distorted = (int)(center_x + r * g_cos(theta));
+            int y_distorted = (int)(center_y + r * g_sin(theta));
+            // Check if distorted coordinates are within image bounds
+            if (x_distorted >= 0 && x_distorted < display.width && y_distorted >= 0 && y_distorted < display.height)
             {
-                double nr = sqrt(1.0 - r * r);
-                // new distance is between 0 ... 1
-                nr = (r + (1.0 - nr)) / 2.0;
-                // discard radius greater than 1.0
-                if (nr <= 1.0)
-                {
-                    // calculate the angle for polar coordinates
-                    double theta = g_aTan2(ny, nx);
-                    // calculate new x position with new distance in same angle
-                    double nxn = nr * g_cos(theta);
-                    // calculate new y position with new distance in same angle
-                    double nyn = nr * g_sin(theta);
-                    // map from -1 ... 1 to image coordinates
-                    int x2 = (int)(((nxn + 1) * w) / 2.0);
-                    // map from -1 ... 1 to image coordinates
-                    int y2 = (int)(((nyn + 1) * h) / 2.0);
-                    // find (x2,y2) position from source pixels
-                    int srcpos = (int)(y2 * w + x2);
-                    // make sure that position stays within arrays
-                    if (srcpos >= 0 & srcpos < w * h)
-                    {
-                        dstpixels[(int)(y * w + x)] = display.color_buffer[srcpos];
-                    }
-                }
+                dest[y * display.width + x] = display.color_buffer[y_distorted * display.width + x_distorted];
+                // Distort the pixel
+                // display.color_buffer[y * display.width + x] = display.color_buffer[y_distorted * display.width + x_distorted];
             }
+        }
+
+        for (int i = 0; i < display.bytes_length; i++)
+        {
+            console_log(i, dest[i]);
         }
     }
 }
@@ -464,15 +445,6 @@ void clear_z_buffer(void)
             display.z_buffer[(display.width * y) + x] = 1.0f;
         }
     }
-}
-
-int mix_colors(int col_a, int col_b)
-{
-    float bias = 1.5;
-    return (col_a & col_b) |
-           ((int)((col_a & 0x00FF0000) * bias) & 0x00FF0000) |
-           ((int)((col_a & 0x0000FF00) * bias) & 0x0000FF00) |
-           ((int)((col_a & 0x000000FF) * bias) & 0x000000FF);
 }
 
 unsigned int *set_render_mode()

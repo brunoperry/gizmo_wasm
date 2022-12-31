@@ -1,12 +1,12 @@
 CC=clang
 
 clean:
-	rm -f public/src/gizmo.wasm
+	rm -f web/src/gizmo.wasm
 
 build:
 	$(CC) \
 		--target=wasm32-unknown-wasi \
-		--sysroot /PATH/TO/wasi-libc \
+		--sysroot /Users/brunoperry/wasi-libc \
 		-nostartfiles \
 		-mbulk-memory \
 		-Wall \

@@ -116,5 +116,6 @@ vec3_t barycentric_weights(vec2_t a, vec2_t b, vec2_t c, vec2_t p);
 void int_swap(int *a, int *b);
 void float_swap(float *a, float *b);
 float float_lerp(float a, float b, float t);
+int mix_colors(int c_a, int c_b);
 
 #endif

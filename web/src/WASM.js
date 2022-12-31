@@ -33,6 +33,12 @@ export default class WASM {
     return WASM.#c_module.set_render_mode_buffer();
   }
 
+  static set_weapon_buffer(weapon) {
+    const weapon_buffer = WASM.#c_module.set_weapon_buffer();
+    const buffers = new Int32Array(WASM.mem, weapon_buffer, 9);
+    camera.initialize(buffers);
+    WASM.#c_module.cam_done();
+  }
   static set_camera_buffer(camera) {
     const cam_buffer = WASM.#c_module.set_camera_buffer();
     const buffers = new Int32Array(WASM.mem, cam_buffer, 9);

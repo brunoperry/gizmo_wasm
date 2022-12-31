@@ -506,6 +506,49 @@ float g_cos(float x)
     float y = r * 16 * (fabsf(r) - 0.5);
     return y;
 }
+
+// double cosine(double x)
+// {
+//     // Convert x to radians
+//     x = x * M_PI / 180;
+
+//     // Initialize the cosine value to 1
+//     double cos = 1;
+
+//     // Initialize the term to x^2
+//     double term = x * x;
+
+//     // Initialize the factorial to 2
+//     double factorial = 2;
+
+//     // Initialize the sign to -1
+//     int sign = -1;
+
+//     // Initialize the loop variable to 1
+//     int i = 1;
+
+//     // Loop until the term is small enough to be ignored
+//     while (fabs(term) > 1e-12)
+//     {
+//         // Add the term to the cosine value
+//         cos += term;
+
+//         // Increment the loop variable
+//         i += 2;
+
+//         // Update the sign
+//         sign = -sign;
+
+//         // Update the factorial
+//         factorial *= i * (i - 1);
+
+//         // Update the term
+//         term = sign * term * x * x / factorial;
+//     }
+
+//     return cos;
+// }
+
 float g_sin(float x)
 {
     return g_cos(x - M_PID2);
@@ -577,4 +620,26 @@ void float_swap(float *a, float *b)
 float float_lerp(float a, float b, float t)
 {
     return a + t * (b - a);
+}
+
+int mix_colors(int c_a, int c_b)
+{
+    // Extract the alpha, red, green, and blue components of each color
+    int a1 = c_a >> 24;
+    int r1 = (c_a >> 16) & 0xFF;
+    int g1 = (c_a >> 8) & 0xFF;
+    int b1 = c_a & 0xFF;
+    int a2 = c_b >> 24;
+    int r2 = (c_b >> 16) & 0xFF;
+    int g2 = (c_b >> 8) & 0xFF;
+    int b2 = c_b & 0xFF;
+
+    // Mix the colors by averaging their alpha, red, green, and blue components
+    int a = (a1 + a2) / 2;
+    int r = (r1 + r2) / 2;
+    int g = (g1 + g2) / 2;
+    int b = (b1 + b2) / 2;
+
+    // Combine the mixed alpha, red, green, and blue values into a single hexadecimal value
+    return (a << 24) | (r << 16) | (g << 8) | b;
 }

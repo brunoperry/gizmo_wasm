@@ -21,7 +21,18 @@ export default class Resources {
 
     for (let i = 0; i < raw_data.meshes.length; i++) {
       if (listener) listener(state, `loading object: ${raw_data.meshes[i].name}`);
-      const obj_data = await Resources.#load_obj_file(raw_data.meshes[i].url);
+
+      const split_data = raw_data.meshes[i].url.split(".");
+      const obj_type = split_data[split_data.length - 1];
+      let obj_data;
+      switch (obj_type) {
+        case "obj":
+          obj_data = await Resources.#load_obj_file(raw_data.meshes[i].url);
+          break;
+        case "fbx":
+          obj_data = await Resources.#load_fbx_file(raw_data.meshes[i].url);
+          break;
+      }
       obj_data.texture = new Texture(raw_data.meshes[i].texture);
       Resources.objects.push(obj_data);
     }
@@ -46,7 +57,6 @@ export default class Resources {
   static get_image(image_name) {
     return Resources.images.find((image) => image.name === image_name);
   }
-
   static async #load_json_data(data_path) {
     const req = await fetch(data_path);
     const res = await req.json();
@@ -56,6 +66,86 @@ export default class Resources {
     const req = await fetch(data_path);
     const res = await req.text();
     return res;
+  }
+
+  static async #load_fbx_file(data_path) {
+    const parse_block = (from, data) => {
+      let data_block = "";
+      let start_parse = false;
+      let num_brackets = 0;
+      for (let i = from; i < data.length; i++) {
+        if (start_parse && num_brackets === 0) break;
+        const char = data[i];
+        data_block += char;
+        if (char === "{") {
+          if (!start_parse) start_parse = true;
+          num_brackets++;
+        }
+        if (char === "}") {
+          num_brackets--;
+        }
+      }
+      const tokens = data_block.split("\n");
+      const pop = tokens[0].split(" ");
+      tokens[0] = `${pop[0]} ${pop[pop.length - 1]}`;
+      let out_data;
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i];
+        if (tok.includes("a:")) {
+          out_data = tok.split(" ")[1].split(",");
+          break;
+        }
+      }
+      for (let i = 0; i < out_data.length; i++) {
+        out_data[i] = parseFloat(out_data[i]);
+      }
+
+      return out_data;
+    };
+    const data = await Resources.#load_text_data(data_path);
+    const clean_data = Resources.#cleanString(data);
+
+    let faces = [];
+    const vertices = parse_block(clean_data.search("Vertices:"), clean_data);
+    const vertices_index = parse_block(
+      clean_data.search("PolygonVertexIndex:"),
+      clean_data
+    );
+
+    const uvs_index = parse_block(clean_data.search("UVIndex:"), clean_data);
+    const uvs = parse_block(clean_data.search("UV:"), clean_data);
+
+    const normals = [];
+    for (let i = 0; i < vertices_index.length; i++) {
+      const val = vertices_index[i];
+      if (val < 0) {
+        vertices_index[i] = Math.abs(parseInt(vertices_index[i] + 1));
+      }
+      normals.push(1);
+
+      faces.push(vertices_index[i]);
+      faces.push(uvs_index[i]);
+      faces.push(1);
+    }
+
+    const name_index = clean_data.search("Model: ");
+    let name_data = "";
+    for (let i = name_index; i < clean_data.length; i++) {
+      const char = clean_data[i];
+      if (char === "\n") break;
+      name_data += char;
+    }
+    const name = name_data.split(", ")[1].replace(/['"]/g, "").replace("Model::", "");
+
+    const object3d = Resources.#make_fan_strip({
+      vertices: vertices,
+      uvs: uvs,
+      normals: normals,
+      faces: faces,
+      name: name,
+    });
+
+    return object3d;
   }
   static async #load_obj_file(data_path) {
     const data = await Resources.#load_text_data(data_path);
@@ -67,7 +157,7 @@ export default class Resources {
     let normals = [];
     let faces = [];
     let name = "no_name";
-    for (var i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
       tokens = lines[i].split(" ");
       tokens = Resources.#removeEmptyStrings(tokens);
 
@@ -184,6 +274,7 @@ export default class Resources {
     }
 
     let normals = new Array(mesh_data.normals.length / 3);
+
     let normal_counter = 0;
     for (let i = 0; i < mesh_data.normals.length; i += 3) {
       normals[normal_counter] = [
@@ -196,6 +287,7 @@ export default class Resources {
     let fanned_normals = [];
     for (let i = 0; i < mesh_data.faces.length; i += 3) {
       const a_index = mesh_data.faces[i + 2];
+
       fanned_normals.push(...normals[a_index]);
     }
     return new Object3D({
@@ -208,7 +300,13 @@ export default class Resources {
   }
   static #removeEmptyStrings(data) {
     let dataOut = [];
-    for (let i = 0; i < data.length; i++) if (data[i] !== "") dataOut.push(data[i]);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = data[i].replace(/\t/g, "");
+      if (data[i] !== "") dataOut.push(data[i]);
+    }
     return dataOut;
+  }
+  static #cleanString(data) {
+    return data.replace(/\t/g, "");
   }
 }

@@ -48,6 +48,18 @@ export default class Camera3D {
     this.position = vec3(pos.x, pos.y, pos.z + val);
   }
 
+  // createViewMatrix() {
+  //   const center = glMatrix.vec3.create();
+  //   glMatrix.vec3.add(center, this.#pos, this.#dir);
+
+  //   console.log("alksd");
+
+  //   const viewMatrix = glMatrix.mat4.create();
+  //   glMatrix.mat4.lookAt(viewMatrix, this.#pos, center, this.UP);
+
+  //   return viewMatrix;
+  // }
+
   get aspect_x() {
     return new Float32Array(WASM.mem, this.#cam_buffer[0], 1)[0];
   }

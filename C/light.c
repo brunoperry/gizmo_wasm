@@ -13,15 +13,17 @@ light_t *light_build(light_t *light_to_build)
 
 int light_apply_intensity(int original_color, float percentage_factor)
 {
-    if (percentage_factor < 0)
-        percentage_factor = 0;
+    if (percentage_factor < 0.2)
+        percentage_factor = 0.2;
     if (percentage_factor > 1)
         percentage_factor = 1;
 
-    return (original_color & 0xFF000000) |
-           ((int)((original_color & 0x00FF0000) * percentage_factor) & 0x00FF0000) |
-           ((int)((original_color & 0x0000FF00) * percentage_factor) & 0x0000FF00) |
-           ((int)((original_color & 0x000000FF) * percentage_factor) & 0x000000FF);
+    int color = (original_color & 0xFF000000) |
+                ((int)((original_color & 0x00FF0000) * percentage_factor) & 0x00FF0000) |
+                ((int)((original_color & 0x0000FF00) * percentage_factor) & 0x0000FF00) |
+                ((int)((original_color & 0x000000FF) * percentage_factor) & 0x000000FF);
+
+    return mix_colors(color, 0xff170002);
 }
 
 int light_apply_ambient(light_t light, int color)

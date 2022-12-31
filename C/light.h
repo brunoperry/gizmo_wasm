@@ -1,6 +1,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
+#include "gmath.h"
 #include "walloc.h"
 #include "wasm.h"
 

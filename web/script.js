@@ -53,11 +53,13 @@ class Demo extends Scene {
   constructor() {
     super("demo");
 
-    this.#obj1 = Resources.get_object("portalegre");
-    this.#obj2 = Resources.get_object("road");
+    this.#obj1 = Resources.get_object("floor");
+    // this.#obj2 = Resources.get_object("road");
 
     this.add_obj3d(this.#obj1);
-    this.add_obj3d(this.#obj2);
+
+    this.player.add_collider(this.#obj1);
+    // this.add_obj3d(this.#obj2);
   }
 
   update(delta) {

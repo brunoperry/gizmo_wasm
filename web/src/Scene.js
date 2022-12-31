@@ -1,19 +1,20 @@
 import WASM from "./WASM.js";
 import Light3D from "./Light3D.js";
-import FreeCamera from "./FreeCam.js";
+import Player from "./Player.js";
 
 export default class Scene {
   objects_3d = [];
-  camera;
+  player;
   light;
   name;
   constructor(name = "unnamed") {
     this.name = name;
     this.light = new Light3D();
-    this.camera = new FreeCamera();
+
+    this.player = new Player();
 
     this.set_light(this.light);
-    this.set_camera(this.camera);
+    this.set_camera(this.player);
   }
 
   add_obj3d(obj3d) {
@@ -29,10 +30,10 @@ export default class Scene {
   }
 
   play() {
-    this.camera.move_forward();
+    this.player.move_forward();
   }
 
-  update(delta) {
-    this.camera.update(delta);
+  update() {
+    this.player.update();
   }
 }

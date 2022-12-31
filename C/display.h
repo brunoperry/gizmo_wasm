@@ -55,8 +55,6 @@ void apply_fisheye();
 void clear_color_buffer(int color);
 void clear_z_buffer(void);
 
-int mix_colors(int col_a, int col_b);
-
 unsigned int *set_render_mode();
 
 #endif

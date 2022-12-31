@@ -35,7 +35,49 @@ export default class Display {
   }
 
   update() {
+    // this.apply_fisheye();
     this.#context.putImageData(new ImageData(this.#c_buffer, Display.width), 0, 0);
+  }
+
+  apply_fisheye() {
+    // const data = new ImageData(this.#c_buffer, Display.width);
+
+    const data = new Uint8ClampedArray(
+      Uint32Array.BYTES_PER_ELEMENT * Display.width * Display.height
+    );
+
+    const k = 0.0001; // Distortion strength
+    const centerX = Display.width / 2;
+    const centerY = Display.height / 2;
+
+    for (let y = 0; y < Display.height; y++) {
+      for (let x = 0; x < Display.width; x++) {
+        // Calculate distance from center
+        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+        // Calculate angle from center
+        const theta = Math.atan2(y - centerY, x - centerX);
+        // Calculate distorted radius
+        const r = distance * (1 + k * distance ** 2);
+        // Calculate distorted coordinates
+        const xDistorted = Math.round(centerX + r * Math.cos(theta));
+        const yDistorted = Math.round(centerY + r * Math.sin(theta));
+        // Check if distorted coordinates are within image bounds
+        if (
+          xDistorted >= 0 &&
+          xDistorted < Display.width &&
+          yDistorted >= 0 &&
+          yDistorted < Display.height
+        ) {
+          // Distort the pixel
+          const index = (y * Display.width + x) * 4;
+          const distortedIndex = (yDistorted * Display.width + xDistorted) * 4;
+          this.#c_buffer[index] = this.#c_buffer[distortedIndex];
+          this.#c_buffer[index + 1] = this.#c_buffer[distortedIndex + 1];
+          this.#c_buffer[index + 2] = this.#c_buffer[distortedIndex + 2];
+          this.#c_buffer[index + 3] = this.#c_buffer[distortedIndex + 3];
+        }
+      }
+    }
   }
 
   get render_mode() {

@@ -55,7 +55,7 @@ static camera_t *camera;
 
 camera_t *camera_build(camera_t *cam_to_build);
 mat4_t cam_look_at(camera_t *camera, vec3_t target);
-mat4_t cam_view();
+mat4_t cam_view(camera_t *camera);
 void init_frustum_planes();
 polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle);
 void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles);

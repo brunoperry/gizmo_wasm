@@ -115,8 +115,12 @@ EXPORT void light_done()
 EXPORT void update()
 {
     clear_z_buffer();
-    clear_color_buffer(0x00000000);
+    clear_color_buffer(0xFF1d0501);
     mat4_t view_matrix = cam_view(camera);
+
+    // double angle = cosine(12);
+
+    // console_log(123, angle);
 
     int total_tris = 0;
     for (int i = 0; i < total_objs3d; i++)

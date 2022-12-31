@@ -1,9 +1,19 @@
 {
   "meshes": [
     {
+      "name": "shotgun",
+      "url": "./resources/meshes/shotgun.obj",
+      "texture": "portalegre"
+    },
+    {
       "name": "portalegre",
       "url": "./resources/meshes/portalegre.obj",
       "texture": "portalegre"
+    },
+    {
+      "name": "floor",
+      "url": "./resources/meshes/floor.obj",
+      "texture": "null"
     },
     {
       "name": "road",

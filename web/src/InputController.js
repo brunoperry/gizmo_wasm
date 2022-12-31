@@ -30,7 +30,13 @@ export default class InputController {
     }
 
     //keyboard stuff
-    document.addEventListener("keydown", (e) => (InputController.Keys[e.keyCode] = true));
+    document.addEventListener("keydown", (e) => {
+      InputController.Keys[e.keyCode] = true;
+      if (InputController.getKey(InputController.Key.SPACE)) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    });
     document.addEventListener("keyup", (e) => (InputController.Keys[e.keyCode] = false));
 
     //mouse stuff
