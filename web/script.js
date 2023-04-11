@@ -58,7 +58,7 @@ class Demo extends Scene {
 
     this.add_obj3d(this.#obj1);
 
-    this.player.add_collider(this.#obj1);
+    // this.player.add_collider(this.#obj1);
     // this.add_obj3d(this.#obj2);
   }
 

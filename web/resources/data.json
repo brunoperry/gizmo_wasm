@@ -3,7 +3,7 @@
     {
       "name": "shotgun",
       "url": "./resources/meshes/shotgun.obj",
-      "texture": "portalegre"
+      "texture": "shotgun"
     },
     {
       "name": "portalegre",
@@ -22,6 +22,10 @@
     }
   ],
   "images": [
+    {
+      "name": "shotgun",
+      "url": "./resources/images/texture_shotgun.png"
+    },
     {
       "name": "portalegre",
       "url": "./resources/images/texture_portalegre.png"

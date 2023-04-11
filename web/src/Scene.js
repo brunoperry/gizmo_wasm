@@ -30,7 +30,7 @@ export default class Scene {
   }
 
   play() {
-    this.player.move_forward();
+    // this.player.move_forward();
   }
 
   update() {

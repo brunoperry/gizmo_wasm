@@ -14,10 +14,17 @@ export default class Shotgun {
     this.rotation = rot;
   }
 
-  set position(val) {
-    this.mesh.position = val;
+  set position(pos) {
+    this.mesh.position = pos;
   }
   get position() {
     return this.mesh.position;
+  }
+
+  set rotation(rot) {
+    this.mesh.rotation = rot;
+  }
+  get rotation() {
+    return this.mesh.rotation;
   }
 }

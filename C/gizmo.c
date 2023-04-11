@@ -4,6 +4,7 @@
 #include "display.h"
 #include "renderer.h"
 #include "camera.h"
+#include "cam.h"
 #include "light.h"
 #include "object.h"
 #include "gmath.h"
@@ -28,6 +29,24 @@ static light_t light_to_build;
 static object3d_to_build_t object_to_build;
 static object3d_t *objs3d[MAX_OBJECTS];
 static int total_objs3d = 0;
+
+EXPORT unsigned int *set_cam_buffer()
+{
+    unsigned int *cam_buffer = malloc(7 * sizeof(int));
+
+    cam_buffer[0] = (unsigned int)malloc(3 * sizeof(float));
+    cam_buffer[1] = (unsigned int)malloc(3 * sizeof(float));
+    cam_buffer[2] = (unsigned int)malloc(3 * sizeof(float));
+    cam_buffer[3] = (unsigned int)malloc(3 * sizeof(float));
+
+    cam_buffer[4] = (unsigned int)malloc(sizeof(float));
+    cam_buffer[5] = (unsigned int)malloc(sizeof(float));
+    cam_buffer[6] = (unsigned int)malloc(sizeof(float));
+
+    cam = cam_build(cam_buffer);
+
+    return cam_buffer;
+}
 
 EXPORT unsigned int *set_camera_buffer()
 {
@@ -117,6 +136,8 @@ EXPORT void update()
     clear_z_buffer();
     clear_color_buffer(0xFF1d0501);
     mat4_t view_matrix = cam_view(camera);
+
+    console_log(133, cam->position[0]);
 
     // double angle = cosine(12);
 

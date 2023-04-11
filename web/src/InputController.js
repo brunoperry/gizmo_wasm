@@ -19,8 +19,8 @@ export default class InputController {
     RIGHT: 2,
   };
   static DWheel = 0;
-  static MouseX = null;
-  static MouseY = null;
+  static MouseX = 0;
+  static MouseY = 0;
   static MouseDX = 0;
   static MouseDY = 0;
 
@@ -61,6 +61,8 @@ export default class InputController {
     document.addEventListener("mousemove", (e) => {
       // InputController.MouseX = e.clientX;
       // InputController.MouseY = e.clientY;
+
+      // console.log(e);
       InputController.MouseDX = e.movementX;
       InputController.MouseDY = e.movementY;
       if (timerID) clearTimeout(timerID);

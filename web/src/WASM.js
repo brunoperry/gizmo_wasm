@@ -39,6 +39,11 @@ export default class WASM {
     camera.initialize(buffers);
     WASM.#c_module.cam_done();
   }
+
+  static set_cam_buffer(camera) {
+    const cam_buffer = WASM.#c_module.set_cam_buffer();
+    camera.initialize(cam_buffer);
+  }
   static set_camera_buffer(camera) {
     const cam_buffer = WASM.#c_module.set_camera_buffer();
     const buffers = new Int32Array(WASM.mem, cam_buffer, 9);

@@ -36,6 +36,7 @@ export default class Display {
 
   update() {
     // this.apply_fisheye();
+
     this.#context.putImageData(new ImageData(this.#c_buffer, Display.width), 0, 0);
   }
 
