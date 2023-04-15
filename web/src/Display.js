@@ -1,5 +1,13 @@
-import Resources from "./Resources.js";
 import WASM from "./WASM.js";
+import {
+  mat4_mul_mat4,
+  mat4_mul_vec3,
+  mat4_mul_vec4,
+  vec3,
+  vec3_add,
+  vec4_divide_scalar_2d,
+  vec4_from_vec3,
+} from "./math.js";
 
 export default class Display {
   static width = document.querySelector("canvas").width;
@@ -22,62 +30,92 @@ export default class Display {
     Display.height = this.#canvas.height;
     this.#context = this.#canvas.getContext("2d");
     this.#context.imageSmoothingEnabled = false;
-    const cb_pointer = WASM.set_color_buffer(Display.width, Display.height);
+    const cb_pointer = WASM.set_display_buffer(Display.width, Display.height);
     this.#c_buffer = new Uint8ClampedArray(
       WASM.mem,
       cb_pointer,
       Uint32Array.BYTES_PER_ELEMENT * Display.width * Display.height
     );
-
-    this.#render_mode_buffer = WASM.set_render_mode_buffer();
-
-    this.render_mode = Display.RenderModes.TEXTURED;
   }
 
   update() {
-    // this.apply_fisheye();
-
     this.#context.putImageData(new ImageData(this.#c_buffer, Display.width), 0, 0);
   }
+  update_once(scene) {
+    this.#c_buffer = new Uint8ClampedArray(Display.width * Display.height * 4);
+    this.#display_clear();
 
-  apply_fisheye() {
-    // const data = new ImageData(this.#c_buffer, Display.width);
+    const objs = scene.objects_3d;
+    const viewMatrix = scene.camera.view_matrix;
+    const projectionMatrix = scene.camera.projection_matrix;
+    objs.forEach((obj3d) => {
+      const modelMatrix = obj3d.model_matrix;
+      const modelView = mat4_mul_mat4(viewMatrix, modelMatrix);
+      const mvp = mat4_mul_mat4(projectionMatrix, modelView);
+      const triangles = this.#project_triangles(obj3d, mvp);
+      this.#display_draw(triangles);
+    });
+    this.update();
+  }
+  #project_triangles(obj3d, mvp) {
+    const triangles_out = [];
+    const triangles_in = [];
 
-    const data = new Uint8ClampedArray(
-      Uint32Array.BYTES_PER_ELEMENT * Display.width * Display.height
-    );
+    const verts = obj3d.mesh.vertices;
+    for (let i = 0; i < verts.length; i += 9) {
+      triangles_in.push({
+        a: vec3(verts[i + 0], verts[i + 1], verts[i + 2]),
+        b: vec3(verts[i + 3], verts[i + 4], verts[i + 5]),
+        c: vec3(verts[i + 6], verts[i + 7], verts[i + 8]),
+      });
 
-    const k = 0.0001; // Distortion strength
-    const centerX = Display.width / 2;
-    const centerY = Display.height / 2;
+      console.table(triangles_in[i]);
+      triangles_out.push({
+        a: vec3(),
+        b: vec3(),
+        c: vec3(),
+      });
+    }
+    const num_tris = triangles_in.length;
 
-    for (let y = 0; y < Display.height; y++) {
-      for (let x = 0; x < Display.width; x++) {
-        // Calculate distance from center
-        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-        // Calculate angle from center
-        const theta = Math.atan2(y - centerY, x - centerX);
-        // Calculate distorted radius
-        const r = distance * (1 + k * distance ** 2);
-        // Calculate distorted coordinates
-        const xDistorted = Math.round(centerX + r * Math.cos(theta));
-        const yDistorted = Math.round(centerY + r * Math.sin(theta));
-        // Check if distorted coordinates are within image bounds
-        if (
-          xDistorted >= 0 &&
-          xDistorted < Display.width &&
-          yDistorted >= 0 &&
-          yDistorted < Display.height
-        ) {
-          // Distort the pixel
-          const index = (y * Display.width + x) * 4;
-          const distortedIndex = (yDistorted * Display.width + xDistorted) * 4;
-          this.#c_buffer[index] = this.#c_buffer[distortedIndex];
-          this.#c_buffer[index + 1] = this.#c_buffer[distortedIndex + 1];
-          this.#c_buffer[index + 2] = this.#c_buffer[distortedIndex + 2];
-          this.#c_buffer[index + 3] = this.#c_buffer[distortedIndex + 3];
-        }
-      }
+    const center = vec3(Display.width / 2, Display.height / 2, 0);
+    for (let i = 0; i < num_tris; i++) {
+      // Apply the view-projection matrix to each vertex of the triangle
+
+      const a = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].a));
+      const b = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].b));
+      const c = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].c));
+
+      // Divide by w to get the projected coordinates, center to screen and store the projected triangle
+      triangles_out[i].a = vec3_add(vec4_divide_scalar_2d(a, a.w), center);
+      triangles_out[i].b = vec3_add(vec4_divide_scalar_2d(b, b.w), center);
+      triangles_out[i].c = vec3_add(vec4_divide_scalar_2d(c, c.w), center);
+    }
+    return triangles_out;
+  }
+  #display_draw(triangles) {
+    for (let i = 0; i < triangles.length; i++) {
+      const tri = triangles[i];
+      this.#draw_pixel(tri.a.x, tri.a.y);
+      this.#draw_pixel(tri.b.x, tri.b.y);
+      this.#draw_pixel(tri.c.x, tri.c.y);
+    }
+  }
+  #draw_pixel(x, y) {
+    if (x >= 0 && x < Display.width && y >= 0 && y < Display.height) {
+      const index = parseInt(4 * (x + y * Display.width));
+      this.#c_buffer[index + 0] = 255;
+      this.#c_buffer[index + 1] = 255;
+      this.#c_buffer[index + 2] = 255;
+      this.#c_buffer[index + 3] = 255;
+    }
+  }
+  #display_clear() {
+    for (let i = 0; i < this.#c_buffer.length; i += 4) {
+      this.#c_buffer[i] = 0; // red channel
+      this.#c_buffer[i + 1] = 0; // green channel
+      this.#c_buffer[i + 2] = 0; // blue channel
+      this.#c_buffer[i + 3] = 255; // alpha channel (opaque)
     }
   }
 

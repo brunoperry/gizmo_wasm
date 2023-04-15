@@ -1,4 +1,3 @@
-import AudioTrack from "./AudioTrack.js";
 import Object3D from "./Object3D.js";
 import Texture from "./Texture.js";
 
@@ -32,22 +31,12 @@ export default class Resources {
         case "fbx":
           obj_data = await Resources.#load_fbx_file(raw_data.meshes[i].url);
           break;
+        case "gltf":
+          obj_data = await Resources.#load_gltf_file(raw_data.meshes[i].url);
+          break;
       }
       obj_data.texture = new Texture(raw_data.meshes[i].texture);
       Resources.objects.push(obj_data);
-    }
-
-    for (let i = 0; i < raw_data.audios.length; i++) {
-      if (listener) listener(state, `loading audio: ${raw_data.audios[i].name}`);
-      const audio_data = await Resources.#load_audio_file(raw_data.audios[i].url);
-
-      const audio = new AudioTrack(audio_data, raw_data.audios[i].name);
-      if (!raw_data.audios[i].name) {
-        audio.name = "main";
-        Resources.main_audio = audio;
-        continue;
-      }
-      Resources.audios.push(audio);
     }
   }
 
@@ -210,6 +199,44 @@ export default class Resources {
     });
 
     return object3d;
+  }
+  static async #load_gltf_file(data_path) {
+    // const req = await fetch(data_path);
+    // const res = await req.json();
+
+    // const mesha = res.meshes[0];
+    // const primitive = mesha.primitives[0];
+    // const attributes = primitive.attributes;
+    // const indices = primitive.indices;
+
+    const response = await fetch(data_path);
+    const data = await response.json();
+    const meshData = data.meshes[0];
+    return new Object3D(data);
+
+    // const mesh = {
+    //   vertices: data.accessors[vertices].bufferView.buffer,
+    //   indices: data.accessors[indices].bufferView.buffer,
+    //   vertexCount: data.accessors[vertices].count,
+    //   indexCount: data.accessors[indices].count,
+    //   vertexStride: 12, // Assuming the position attribute has 3 floats
+    //   indexType: data.accessors[indices].componentType,
+    // };
+
+    // const mesh = new Mesh(meshData.vertices, meshData.indices, material, texture);
+    // mesh.vertexCount = meshData.vertexCount;
+    // mesh.indexCount = meshData.indexCount;
+    // mesh.vertexStride = meshData.vertexStride;
+    // mesh.indexType = meshData.indexType;
+
+    // return new Object3D({
+    //   vertices: fanned_vecs,
+    //   uvs: fanned_uvs,
+    //   normals: fanned_normals,
+    //   name: mesh_data.name,
+    //   texture: mesh_data.texture,
+    // });
+    console.log(res);
   }
   static async #load_image_file(data, as_image = false) {
     return new Promise((resolve, reject) => {

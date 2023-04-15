@@ -1,42 +1,22 @@
 {
   "meshes": [
     {
-      "name": "shotgun",
-      "url": "./resources/meshes/shotgun.obj",
-      "texture": "shotgun"
-    },
-    {
-      "name": "portalegre",
-      "url": "./resources/meshes/portalegre.obj",
+      "name": "cube",
+      "type": "obj",
+      "url": "./resources/meshes/cube.obj",
       "texture": "portalegre"
     },
     {
-      "name": "floor",
-      "url": "./resources/meshes/floor.obj",
-      "texture": "null"
-    },
-    {
-      "name": "road",
-      "url": "./resources/meshes/road.obj",
-      "texture": "road"
+      "name": "triangle",
+      "type": "obj",
+      "url": "./resources/meshes/triangle.obj",
+      "texture": "portalegre"
     }
   ],
   "images": [
     {
-      "name": "shotgun",
-      "url": "./resources/images/texture_shotgun.png"
-    },
-    {
       "name": "portalegre",
       "url": "./resources/images/texture_portalegre.png"
-    },
-    {
-      "name": "road",
-      "url": "./resources/images/texture_road.png"
-    },
-    {
-      "name": "null",
-      "url": "./resources/images/texture_null.png"
     }
   ],
   "audios": []

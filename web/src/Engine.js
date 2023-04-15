@@ -2,7 +2,6 @@ import Display from "./Display.js";
 import Resources from "./Resources.js";
 import InputController from "./InputController.js";
 import WASM from "./WASM.js";
-import AudioController from "./AudioControler.js";
 
 export default class Engine {
   static States = {
@@ -36,17 +35,26 @@ export default class Engine {
 
   async start_engine(scene) {
     await Resources.initialize(this.#listener, Engine.States.LOADING);
-    InputController.initialize();
 
     const { instance } = await WebAssembly.instantiateStreaming(
       fetch("./src/gizmo.wasm"),
-      { js: { console_log: WASM.wasm_log, info_log: WASM.wasm_info } }
+      {
+        js: {
+          console_log: WASM.wasm_log,
+          info_log: WASM.wasm_info,
+          log_matrix: WASM.log_matrix,
+          log_triangle: WASM.log_triangle,
+          log_float: WASM.log_float,
+          log_vec3: WASM.log_vec3,
+        },
+      }
     );
 
     this.#wasm = new WASM(instance.exports);
     this.#scene = new scene();
     // this.#audio = new AudioController();
     this.#display = new Display();
+    WASM.initialize();
 
     document.addEventListener("pointerlockchange", (e) => {
       if (!this.#display.lock_cursor) this.stop();
@@ -55,10 +63,17 @@ export default class Engine {
     this.#listener(Engine.States.READY, "Ready!");
   }
 
+  test() {
+    this.#scene.update(this.#delta_time);
+
+    this.#wasm.update_once();
+    this.#display.update();
+    this.#display.update_once(this.#scene);
+  }
+
   play() {
     if (this.#loopID) return;
-    this.#scene.play();
-    this.#display.lock_cursor = true;
+    // this.#display.lock_cursor = true;
     this.#loopID = requestAnimationFrame(() => this.#loop());
     this.#listener(Engine.States.PLAYING);
   }
@@ -72,7 +87,7 @@ export default class Engine {
     this.#listener(Engine.States.STOPPED);
   }
 
-  #loop(e) {
+  #loop() {
     let time = performance.now();
     this.#delta_time = (time - this.#previous_frame_time) / 1000.0;
     this.#frame++;

@@ -1,3 +1,7 @@
+import Camera3D from "./Camera3D.js";
+import Object3D from "./Object3D.js";
+import { vec3 } from "./math.js";
+
 export default class WASM {
   static #c_module = null;
 
@@ -15,6 +19,28 @@ export default class WASM {
       })
     );
   }
+  static log_vec3(vx, vy, vz) {
+    console.log("vec3", vec3(vx, vy, vz));
+  }
+  static log_float(f) {
+    console.log("float", f);
+  }
+  static log_matrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) {
+    console.table([
+      [a, b, c, d],
+      [e, f, g, h],
+      [i, j, k, l],
+      [m, n, o, p],
+    ]);
+  }
+  static log_triangle(ax, ay, az, bx, by, bz, cx, cy, cz) {
+    const tri = {
+      a: vec3(ax, ay, az),
+      b: vec3(bx, by, bz),
+      c: vec3(cx, cy, cz),
+    };
+    console.table(tri);
+  }
   static get mem() {
     return WASM.#c_module.memory.buffer;
   }
@@ -25,47 +51,36 @@ export default class WASM {
   update() {
     WASM.#c_module.update();
   }
-
-  static set_color_buffer(width, height) {
-    return WASM.#c_module.set_color_buffer(width, height);
-  }
-  static set_render_mode_buffer() {
-    return WASM.#c_module.set_render_mode_buffer();
+  update_once() {
+    WASM.#c_module.update_once();
   }
 
-  static set_weapon_buffer(weapon) {
-    const weapon_buffer = WASM.#c_module.set_weapon_buffer();
-    const buffers = new Int32Array(WASM.mem, weapon_buffer, 9);
-    camera.initialize(buffers);
-    WASM.#c_module.cam_done();
-  }
+  // static set_color_buffer(width, height) {
+  //   return WASM.#c_module.set_color_buffer(width, height);
+  // }
 
-  static set_cam_buffer(camera) {
-    const cam_buffer = WASM.#c_module.set_cam_buffer();
-    camera.initialize(cam_buffer);
+  static set_display_buffer(width, height) {
+    return WASM.#c_module.set_display_buffer(width, height);
   }
   static set_camera_buffer(camera) {
     const cam_buffer = WASM.#c_module.set_camera_buffer();
-    const buffers = new Int32Array(WASM.mem, cam_buffer, 9);
-    camera.initialize(buffers);
-    WASM.#c_module.cam_done();
+    camera.initialize(new Int32Array(WASM.mem, cam_buffer, Camera3D.BUFFER_SIZE));
   }
   static set_light_buffer(light) {
     const light_buffer = WASM.#c_module.set_light_buffer();
     const buffers = new Int32Array(WASM.mem, light_buffer, 1);
     light.initialize(buffers);
-    WASM.#c_module.light_done();
   }
   static set_object_buffer(obj3D) {
     const obj_buffer = WASM.#c_module.set_object_buffer(
-      obj3D.vertices.length,
-      obj3D.uvs.length,
-      obj3D.normals.length,
-      obj3D.texture.width,
-      obj3D.texture.height
+      obj3D.mesh.numVertices,
+      obj3D.mesh.numUVs,
+      obj3D.mesh.numNormals
     );
-    const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
-    obj3D.initialize(buffers);
-    WASM.#c_module.obj_done();
+    obj3D.initialize(new Int32Array(WASM.mem, obj_buffer, Object3D.BUFFER_SIZE));
+  }
+
+  static initialize() {
+    WASM.#c_module.initialize();
   }
 }
