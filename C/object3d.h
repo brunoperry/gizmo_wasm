@@ -7,7 +7,7 @@
 typedef struct
 {
     mesh_t mesh;
-    float *model_buffer;
+    float *transform_buffer;
 
 } object3d_t;
 

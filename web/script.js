@@ -14,16 +14,20 @@ const engine = new Engine((e, data) => {});
  */
 class Demo extends Scene {
   #obj1;
+
+  x = -1;
   constructor() {
     super("demo");
 
-    this.#obj1 = Resources.get_object("triangle");
+    this.#obj1 = Resources.get_object("cube");
     this.add_obj3d(this.#obj1);
   }
 
   update(delta) {
-    this.#obj1.transform.position = vec3(0, 0, 3);
-    this.camera.position = vec3(0, 0, 0);
+    this.#obj1.transform.position = vec3(Math.sin(this.x / 50), 0, 20);
+    this.#obj1.transform.rotation = vec3(this.x, this.x, 0);
+    this.x -= 1;
+    this.camera.position = vec3(0, 0, -2);
     super.update(delta);
   }
 }

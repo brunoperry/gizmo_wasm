@@ -71,6 +71,8 @@ vec4_t vec4_clone(vec4_t *v);
 vec4_t vec4_new(float x, float y, float z, float w);
 vec3_t vec4_divide_scalar(vec4_t vector, float scalar);
 vec3_t vec4_divide_scalar_2d(vec4_t vector, float scalar);
+vec4_t vec4_div_equals_num(vec4_t vec, float num);
+void vec4_log(vec4_t v);
 
 //////////////////////////////////////
 // Matrix Operations
@@ -93,6 +95,7 @@ mat4_t mat4_mul_mat4(mat4_t a, mat4_t b);
 vec4_t mat4_mul_vec4(mat4_t m, vec4_t v);
 vec3_t mat4_mul_vec3(mat4_t m, vec3_t v);
 vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v);
+vec3_t mat4_project_vec4(mat4_t mvp, vec4_t vec);
 void mat4_log(mat4_t m);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,12 +109,6 @@ vec2_t vec2_from_vec4(vec4_t v);
 ///////////////////////////////////////////////////////////////////////////////
 // Math funcs
 ///////////////////////////////////////////////////////////////////////////////
-float g_aTan2(float y, float x);
-float g_tan(float x);
-float g_cos(float x);
-float g_sin(float x);
-int g_abs(int n);
-float g_fabs(float n);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utils funcs
@@ -121,5 +118,6 @@ void int_swap(int *a, int *b);
 void float_swap(float *a, float *b);
 float float_lerp(float a, float b, float t);
 int mix_colors(int c_a, int c_b);
+vec4_t perspective_divide(vec4_t vertex);
 
 #endif

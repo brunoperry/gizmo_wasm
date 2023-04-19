@@ -4,7 +4,7 @@ import WASM from "./WASM.js";
 import { mat4_make_model, mat4_to_buffer } from "./math.js";
 
 export default class Object3D {
-  static BUFFER_SIZE = 7;
+  static BUFFER_SIZE = 5;
   #data;
   #mesh;
   #transform;
@@ -27,8 +27,8 @@ export default class Object3D {
 
   initialize(buffers) {
     this.#mesh.initialize(buffers[0], buffers[1], buffers[2]);
-    this.#transform.initialize(buffers[3], buffers[4], buffers[5]);
-    this.#model_buffer = buffers[6];
+    this.#transform.initialize();
+    this.#model_buffer = buffers[4];
   }
 
   update() {

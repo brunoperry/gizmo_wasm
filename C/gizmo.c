@@ -28,9 +28,16 @@ EXPORT unsigned int *set_light_buffer()
     unsigned int *light_buffer = malloc(1 * sizeof(int));
     return light_buffer;
 }
+
+// The object buffer is made of 4 buffers
+// - Vertex buffer (mesh)
+// - UV buffer (mesh)
+// - Normal buffer (mesh)
+// - Transform matrix (transform)
+
 EXPORT unsigned int *set_object_buffer(int v_length, int uv_length, int n_length)
 {
-    unsigned int *obj_buffer = malloc(4 * sizeof(int));
+    unsigned int *obj_buffer = malloc(5 * sizeof(int));
 
     objs3d[total_objs3d] = obj3d_build(obj_buffer, (int[]){v_length, uv_length, n_length});
     total_objs3d++;
@@ -55,7 +62,7 @@ EXPORT void update_once()
 
     for (int i = 0; i < total_objs3d; i++)
     {
-        mat4_t model_matrix = mat4_from_buffer(objs3d[i]->model_buffer);
+        mat4_t model_matrix = mat4_from_buffer(objs3d[i]->transform_buffer);
 
         mat4_t modelView = mat4_mul_mat4(view_matrix, model_matrix);
         mat4_t mvp = mat4_mul_mat4(projection_matrix, modelView);
@@ -65,14 +72,18 @@ EXPORT void update_once()
 }
 EXPORT void update()
 {
-    // display_clear(display, 0x000000FF);
+    display_clear(display, 0x000000FF);
 
-    // mat4_t view_projection_matrix = mat4_from_buffer(camera->cam_buffer);
-    // for (int i = 0; i < total_objs3d; i++)
-    // {
+    mat4_t view_matrix = mat4_from_buffer(camera->view_buffer);
+    mat4_t projection_matrix = mat4_from_buffer(camera->projection_buffer);
 
-    //     mat4_t mvp = mat4_mul_mat4(mat4_from_buffer(objs3d[i]->obj_buffer), view_projection_matrix);
+    for (int i = 0; i < total_objs3d; i++)
+    {
+        mat4_t model_matrix = mat4_from_buffer(objs3d[i]->transform_buffer);
 
-    //     display_draw(display, objs3d[i], mvp);
-    // }
+        mat4_t modelView = mat4_mul_mat4(view_matrix, model_matrix);
+        mat4_t mvp = mat4_mul_mat4(projection_matrix, modelView);
+
+        display_draw(display, objs3d[i], mvp);
+    }
 }

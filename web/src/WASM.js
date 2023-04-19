@@ -1,6 +1,6 @@
 import Camera3D from "./Camera3D.js";
 import Object3D from "./Object3D.js";
-import { vec3 } from "./math.js";
+import { vec3, vec4 } from "./math.js";
 
 export default class WASM {
   static #c_module = null;
@@ -22,10 +22,14 @@ export default class WASM {
   static log_vec3(vx, vy, vz) {
     console.log("vec3", vec3(vx, vy, vz));
   }
+  static log_vec4(vx, vy, vz, vw) {
+    console.log("vec4", vec4(vx, vy, vz, vw));
+  }
   static log_float(f) {
     console.log("float", f);
   }
   static log_matrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) {
+    console.log([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]);
     console.table([
       [a, b, c, d],
       [e, f, g, h],

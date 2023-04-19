@@ -1,19 +1,7 @@
 import Display from "./Display.js";
 import Transform from "./Transform.js";
 import WASM from "./WASM.js";
-import {
-  vec3,
-  mat4_make_perspective,
-  mat4_mul_mat4,
-  mat4_to_buffer,
-  mat4_make_translation,
-  vec3_normalize,
-  vec3_sub,
-  vec3_cross,
-  vec3_scale,
-  mat4_identity,
-  mat4_make_view,
-} from "./math.js";
+import { vec3, mat4_make_perspective, mat4_to_buffer, mat4_make_view } from "./math.js";
 
 export default class Camera3D {
   static BUFFER_SIZE = 2;
@@ -23,16 +11,15 @@ export default class Camera3D {
   #transform;
   #FOV;
 
-  constructor(position = vec3(), target = vec3(0, 0, 20), up = vec3(0, 1, 0)) {
+  constructor(position = vec3(), target = vec3(0, 0, 1), up = vec3(0, 1, 0)) {
     this.#transform = new Transform();
 
     this.fov = 60;
     this.position = position;
     this.up = up;
     this.target = target;
-    // this.rotation = rotation;
 
-    this.near = 0.01;
+    this.near = 0.1;
     this.far = 1000;
   }
 

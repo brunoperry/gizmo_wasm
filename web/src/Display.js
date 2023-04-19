@@ -49,10 +49,12 @@ export default class Display {
     const viewMatrix = scene.camera.view_matrix;
     const projectionMatrix = scene.camera.projection_matrix;
     objs.forEach((obj3d) => {
+      obj3d.update();
       const modelMatrix = obj3d.model_matrix;
       const modelView = mat4_mul_mat4(viewMatrix, modelMatrix);
       const mvp = mat4_mul_mat4(projectionMatrix, modelView);
       const triangles = this.#project_triangles(obj3d, mvp);
+
       this.#display_draw(triangles);
     });
     this.update();
@@ -68,18 +70,15 @@ export default class Display {
         b: vec3(verts[i + 3], verts[i + 4], verts[i + 5]),
         c: vec3(verts[i + 6], verts[i + 7], verts[i + 8]),
       });
-
-      console.table(triangles_in[i]);
       triangles_out.push({
         a: vec3(),
         b: vec3(),
         c: vec3(),
       });
     }
-    const num_tris = triangles_in.length;
 
     const center = vec3(Display.width / 2, Display.height / 2, 0);
-    for (let i = 0; i < num_tris; i++) {
+    for (let i = 0; i < triangles_in.length; i++) {
       // Apply the view-projection matrix to each vertex of the triangle
 
       const a = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].a));

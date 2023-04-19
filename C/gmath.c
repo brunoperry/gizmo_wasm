@@ -1,5 +1,6 @@
 #include "gmath.h"
 #include "wasm.h"
+#include "triangle.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Texture coordinates Implementations
@@ -149,6 +150,7 @@ void vec3_log(vec3_t v)
 {
     log_vec3(v.x, v.y, v.z);
 }
+
 //////////////////////////////////////
 // Vector 4D Implementations
 //////////////////////////////////////
@@ -174,9 +176,23 @@ vec3_t vec4_divide_scalar_2d(vec4_t vector, float scalar)
     vec3_t result;
     result.x = vector.x / scalar;
     result.y = vector.y / scalar;
-    result.z = 0;
+    result.z = vector.y / scalar;
     return result;
 }
+vec4_t vec4_div_equals_num(vec4_t vec, float num)
+{
+    vec4_t out;
+    out.x = vec.x / num;
+    out.y = vec.y / num;
+    out.z = vec.z / num;
+    out.w = 1;
+    return out;
+}
+void vec4_log(vec4_t v)
+{
+    log_vec4(v.x, v.y, v.z, v.w);
+}
+
 //////////////////////////////////////
 // Matrix Implementations
 //////////////////////////////////////
@@ -224,7 +240,6 @@ mat4_t mat4_make_translation(vec3_t t)
     m.m[2][3] = t.z;
     return m;
 }
-
 mat4_t mat4_make_rotation(vec3_t rot)
 {
     mat4_t m = mat4_identity();
@@ -284,7 +299,6 @@ mat4_t mat4_make_rotation_z(float angle)
     m.m[1][1] = c;
     return m;
 }
-
 mat4_t mat4_mul_mat4(mat4_t a, mat4_t b)
 {
     mat4_t m;
@@ -316,20 +330,6 @@ vec3_t mat4_mul_vec3(mat4_t m, vec3_t v)
 
     return result;
 }
-// mat4_t mat4_make_perspective(float fov, float aspect, float znear, float zfar)
-// {
-//     // | (h/w)*1/tan(fov/2)             0              0                 0 |
-//     // |                  0  1/tan(fov/2)              0                 0 |
-//     // |                  0             0     zf/(zf-zn)  (-zf*zn)/(zf-zn) |
-//     // |                  0             0              1                 0 |
-//     mat4_t m = {{{0}}};
-//     m.m[0][0] = aspect * (1 / g_tan(fov / 2));
-//     m.m[1][1] = 1 / g_tan(fov / 2);
-//     m.m[2][2] = zfar / (zfar - znear);
-//     m.m[2][3] = (-zfar * znear) / (zfar - znear);
-//     m.m[3][2] = 1.0;
-//     return m;
-// }
 vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v)
 {
     // multiply the projection matrix by our original vector
@@ -344,145 +344,27 @@ vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v)
     }
     return result;
 }
+vec3_t mat4_project_vec4(mat4_t mvp, vec4_t vec)
+{
+    // Perform perspective division
+    vec4_t projectedVertex = perspective_divide(vec);
+
+    // Perform viewport transformation
+    int width = 320;
+    int height = 240;
+    float halfWidth = width / 2.0f;
+    float halfHeight = height / 2.0f;
+    float x = halfWidth * (projectedVertex.x / projectedVertex.w + 1.0f);
+    float y = halfHeight * (1.0f - projectedVertex.y / projectedVertex.w);
+    float z = projectedVertex.z / projectedVertex.w;
+
+    return vec3_new(x, y, z);
+}
 
 void mat4_log(mat4_t m)
 {
     log_matrix(m.m[0][0], m.m[0][1], m.m[0][2], m.m[0][3], m.m[1][0], m.m[1][1], m.m[1][2], m.m[1][3], m.m[2][0], m.m[2][1], m.m[2][2], m.m[2][3], m.m[3][0], m.m[3][1], m.m[3][2], m.m[3][3]);
 }
-
-// mat4_t mat4_look_at(vec3_t eye, vec3_t center, vec3_t up)
-// {
-//     mat4_t view_matrix = mat4_identity();
-
-//     vec3_t forward = vec3_sub_vecs(eye, center);
-//     // vec3_normalize(&forward);
-//     vec3_t right = vec3_cross(up, forward);
-//     vec3_normalize(&right);
-//     vec3_t newup = vec3_cross(forward, right);
-
-//     view_matrix.m[0][0] = right.x;
-//     view_matrix.m[0][1] = right.y;
-//     view_matrix.m[0][2] = right.z;
-//     view_matrix.m[0][3] = 0;
-//     view_matrix.m[1][0] = newup.x;
-//     view_matrix.m[1][1] = newup.y;
-//     view_matrix.m[1][2] = newup.z;
-//     view_matrix.m[1][3] = 0;
-//     view_matrix.m[2][0] = forward.x;
-//     view_matrix.m[2][1] = forward.y;
-//     view_matrix.m[2][2] = forward.z;
-//     view_matrix.m[2][3] = 0;
-//     view_matrix.m[3][0] = eye.x;
-//     view_matrix.m[3][1] = eye.y;
-//     view_matrix.m[3][2] = eye.z;
-//     view_matrix.m[3][3] = 1;
-
-//     return view_matrix;
-
-//     vec3_t pos = vec3_clone(&eye);
-//     vec3_negate(&pos);
-
-//     float x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
-//     float eyex = eye.x;
-//     float eyey = eye.y;
-//     float eyez = eye.z;
-//     float upx = up.x;
-//     float upy = up.y;
-//     float upz = up.z;
-//     float centerx = center.x;
-//     float centery = center.y;
-//     float centerz = center.z;
-
-//     if (
-//         fabs(eyex - centerx) < 0.000001 &&
-//         fabs(eyey - centery) < 0.000001 &&
-//         fabs(eyez - centerz) < 0.000001)
-//     {
-//         return mat4_identity();
-//     }
-
-//     z0 = eyex - centerx;
-//     z1 = eyey - centery;
-//     z2 = eyez - centerz;
-
-//     len = 1 / sqrt(z0 * z0 + z1 * z1 + z2 * z2);
-//     z0 *= len;
-//     z1 *= len;
-//     z2 *= len;
-
-//     x0 = upy * z2 - upz * z1;
-//     x1 = upz * z0 - upx * z2;
-//     x2 = upx * z1 - upy * z0;
-//     len = sqrt(x0 * x0 + x1 * x1 + x2 * x2);
-//     if (!len)
-//     {
-//         x0 = 0;
-//         x1 = 0;
-//         x2 = 0;
-//     }
-//     else
-//     {
-//         len = 1 / len;
-//         x0 *= len;
-//         x1 *= len;
-//         x2 *= len;
-//     }
-
-//     y0 = z1 * x2 - z2 * x1;
-//     y1 = z2 * x0 - z0 * x2;
-//     y2 = z0 * x1 - z1 * x0;
-
-//     len = sqrt(y0 * y0 + y1 * y1 + y2 * y2);
-//     if (!len)
-//     {
-//         y0 = 0;
-//         y1 = 0;
-//         y2 = 0;
-//     }
-//     else
-//     {
-//         len = 1 / len;
-//         y0 *= len;
-//         y1 *= len;
-//         y2 *= len;
-//     }
-
-//     view_matrix.m[0][0] = x0;
-//     view_matrix.m[1][0] = y0;
-//     view_matrix.m[2][0] = z0;
-//     view_matrix.m[3][0] = 0;
-//     view_matrix.m[0][1] = x1;
-//     view_matrix.m[1][1] = y1;
-//     view_matrix.m[2][1] = z1;
-//     view_matrix.m[3][1] = 0;
-//     view_matrix.m[0][2] = x2;
-//     view_matrix.m[1][2] = y2;
-//     view_matrix.m[2][2] = z2;
-//     view_matrix.m[3][2] = 0;
-//     view_matrix.m[0][3] = -(x0 * eyex + x1 * eyey + x2 * eyez);
-//     view_matrix.m[1][3] = -(y0 * eyex + y1 * eyey + y2 * eyez);
-//     view_matrix.m[2][3] = -(z0 * eyex + z1 * eyey + z2 * eyez);
-//     view_matrix.m[3][3] = 1;
-
-//     // view_matrix.m[0][0] = x0;
-//     // view_matrix.m[0][1] = y0;
-//     // view_matrix.m[0][2] = z0;
-//     // view_matrix.m[0][3] = 0;
-//     // view_matrix.m[1][0] = x1;
-//     // view_matrix.m[1][1] = y1;
-//     // view_matrix.m[1][2] = z1;
-//     // view_matrix.m[1][3] = 0;
-//     // view_matrix.m[2][0] = x2;
-//     // view_matrix.m[2][1] = y2;
-//     // view_matrix.m[2][2] = z2;
-//     // view_matrix.m[2][3] = 0;
-//     // view_matrix.m[3][0] = -(x0 * eyex + x1 * eyey + x2 * eyez);
-//     // view_matrix.m[3][1] = -(y0 * eyex + y1 * eyey + y2 * eyez);
-//     // view_matrix.m[3][2] = -(z0 * eyex + z1 * eyey + z2 * eyez);
-//     // view_matrix.m[3][3] = 1;
-
-//     return view_matrix;
-// }
 
 //////////////////////////////////////
 // Vector conversion funcs
@@ -513,64 +395,14 @@ vec2_t vec2_from_vec4(vec4_t v)
 //////////////////////////////////////
 // Math
 //////////////////////////////////////
-float g_aTan2(float y, float x)
-{
-    float coeff_1 = M_PI / 4;
-    float coeff_2 = 3 * coeff_1;
-    float abs_y = fabsf(y);
-    float angle;
-    if (x >= 0)
-    {
-        float r = (x - abs_y) / (x + abs_y);
-        angle = coeff_1 - coeff_1 * r;
-    }
-    else
-    {
-        float r = (x + abs_y) / (abs_y - x);
-        angle = coeff_2 - coeff_1 * r;
-    }
-    return y < 0 ? -angle : angle;
-}
-float g_cos(float x)
-{
-    float p = x / M_PI2;
-    float r = p - .25 - floor(p + .25);
-    float y = r * 16 * (fabsf(r) - 0.5);
-    return y;
-}
 
-float g_sin(float x)
-{
-    return g_cos(x - M_PID2);
-}
-float g_tan(float x)
-{
-    return g_sin(x) / g_cos(x);
-}
-
-int g_abs(int n)
-{
-    int out = n;
-    if (n < 0)
-    {
-        out = (-1) * n;
-    }
-
-    return out;
-}
-float g_fabs(float n)
-{
-    float out = n;
-    if (n < 0)
-    {
-        out = (-1) * n;
-    }
-
-    return out;
-}
 //////////////////////////////////////
 // Utils
 //////////////////////////////////////
+vec4_t perspective_divide(vec4_t vertex)
+{
+    return vec4_new(vertex.x /= vertex.w, vertex.y /= vertex.w, vertex.z /= vertex.w, vertex.w);
+}
 vec3_t barycentric_weights(vec2_t a, vec2_t b, vec2_t c, vec2_t p)
 {
     // Find the vectors between the vertices ABC and point p

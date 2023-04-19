@@ -4,7 +4,6 @@ export const vec3 = (x = 0, y = 0, z = 0) => {
 export const vec3_length = (v) => {
   return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 };
-
 export const vec3_scale = (v, s) => {
   return { x: v.x * s, y: v.y * s, z: v.z * s };
 };
@@ -46,7 +45,6 @@ export const vec3_negate = (v) => {
 /////////
 // Vec4
 /////////
-
 export const vec4 = (x, y, z, w) => {
   return { x: x, y: y, z: z, w: w };
 };
@@ -87,7 +85,6 @@ export const mat4_zero = () => {
     [0, 0, 0, 0],
   ];
 };
-
 export const mat4_make_scale = (s) => {
   const m = mat4_identity();
   m[0][0] = s.x;
@@ -103,19 +100,12 @@ export const mat4_make_translation = (t) => {
   return m;
 };
 export const mat4_make_rotation = (rot) => {
-  let m = mat4_identity();
+  const rotationXMatrix = mat4_make_rotation_x(radians(rot.x));
+  const rotationYMatrix = mat4_make_rotation_y(radians(rot.y));
+  const rotationZMatrix = mat4_make_rotation_z(radians(rot.z));
 
-  const rotation_matrix_x = mat4_make_rotation_x(rot.x);
-  const rotation_matrix_y = mat4_make_rotation_y(rot.y);
-  const rotation_matrix_z = mat4_make_rotation_z(rot.z);
-
-  m = mat4_mul_mat4(rotation_matrix_z, m);
-  m = mat4_mul_mat4(rotation_matrix_y, m);
-  m = mat4_mul_mat4(rotation_matrix_x, m);
-
-  return m;
+  return mat4_mul_mat4(mat4_mul_mat4(rotationZMatrix, rotationYMatrix), rotationXMatrix);
 };
-
 export const mat4_make_rotation_x = (angle) => {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
@@ -146,7 +136,6 @@ export const mat4_make_rotation_z = (angle) => {
   m[1][1] = c;
   return m;
 };
-
 export const mat4_mul_mat4 = (a, b) => {
   const m = mat4_identity();
   for (let i = 0; i < 4; i++) {
@@ -175,19 +164,16 @@ export const mat4_mul_vec4 = (m, v) => {
 
   return result;
 };
-
 export const mat4_make_model = (transform) => {
   const m = mat4_identity();
 
-  const t = mat4_make_translation(transform.position);
-  const r = mat4_make_rotation(transform.rotation);
-  const s = mat4_make_scale(transform.scale);
-
-  return mat4_mul_mat4(mat4_mul_mat4(t, r), s);
+  const translationMatrix = mat4_make_translation(transform.position);
+  const rotationMatrix = mat4_make_rotation(transform.rotation);
+  const scaleMatrix = mat4_make_scale(transform.scale);
+  return mat4_mul_mat4(mat4_mul_mat4(translationMatrix, rotationMatrix), scaleMatrix);
 };
 export const mat4_make_view = (position, target, up) => {
   const zAxis = vec3_normalize(vec3_sub(position, target));
-
   const xAxis = vec3_normalize(vec3_cross(up, zAxis));
   const yAxis = vec3_normalize(vec3_cross(zAxis, xAxis));
 
@@ -202,12 +188,15 @@ export const mat4_make_view = (position, target, up) => {
   return mat4_mul_mat4(rotation, mat4_make_translation(translation));
 };
 export const mat4_make_perspective = (fov, aspect, near, far) => {
+  const f = 1.0 / Math.tan(radians(fov) / 2.0);
+  const nf = 1.0 / (near - far);
+
   const m = mat4_zero();
-  m[0][0] = aspect * (1.0 / Math.tan(fov / 2.0));
-  m[1][1] = 1.0 / Math.tan(fov / 2.0);
-  m[2][2] = far / (far - near);
-  m[2][3] = (-far * near) / (far - near);
-  m[3][2] = 1.0;
+  m[0][0] = f / aspect;
+  m[1][1] = f;
+  m[2][2] = (near + far) * nf;
+  m[2][3] = -1.0 * near * far * nf;
+  m[3][2] = 1;
 
   return m;
 };
@@ -286,4 +275,8 @@ export const quat_multiply = (q1, q2) => {
 
 export const quat_conjugate = (q) => {
   return quat(-q.x, -q.y, -q.z, q.w);
+};
+
+const radians = (degrees) => {
+  return (degrees * Math.PI) / 180.0;
 };

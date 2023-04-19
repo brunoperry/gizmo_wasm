@@ -46,6 +46,7 @@ export default class Engine {
           log_triangle: WASM.log_triangle,
           log_float: WASM.log_float,
           log_vec3: WASM.log_vec3,
+          log_vec4: WASM.log_vec4,
         },
       }
     );
@@ -64,11 +65,17 @@ export default class Engine {
   }
 
   test() {
+    // this.#scene.update(this.#delta_time);
+
     this.#scene.update(this.#delta_time);
 
-    this.#wasm.update_once();
+    this.#wasm.update();
+
     this.#display.update();
-    this.#display.update_once(this.#scene);
+
+    // this.#wasm.update_once();
+    // this.#display.update();
+    // this.#display.update_once(this.#scene);
   }
 
   play() {

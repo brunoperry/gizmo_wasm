@@ -20,5 +20,6 @@ typedef struct
 
 mesh_t mesh_build(unsigned int *obj_buffer, int *lengths);
 void mesh_initialize(mesh_t mesh);
+void mesh_log(mesh_t);
 
 #endif

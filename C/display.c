@@ -20,7 +20,9 @@ display_t *display_build(int width, int height)
 
 void display_draw(display_t *display, object3d_t *obj3d, mat4_t mvp)
 {
+
     triangle_t *triangles = project_triangles(display, obj3d, mvp);
+
     int color = 0xffffffff;
 
     for (int i = 0; i < obj3d->mesh.num_triangles; i++)
@@ -40,18 +42,18 @@ triangle_t *project_triangles(display_t *display, object3d_t *obj3d, mat4_t mvp)
     triangle_t *triangles_out = malloc(num_tris * sizeof(triangle_t));
     triangle_t *triangles_in = obj3d->mesh.triangles;
 
+    vec4_t t = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[0].a));
+    vec3_t c = mat4_project_vec4(mvp, t);
+
     for (int i = 0; i < num_tris; i++)
     {
-        triangle_log(triangles_in[i]);
         // Apply the view-projection matrix to each vertex of the triangle
         vec4_t a = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].a));
         vec4_t b = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].b));
         vec4_t c = mat4_mul_vec4(mvp, vec4_from_vec3(triangles_in[i].c));
-
-        // Divide by w to get the projected coordinates, center to screen and store the projected triangle
-        triangles_out[i].a = vec3_add_vecs(vec4_divide_scalar_2d(a, a.w), display->center);
-        triangles_out[i].b = vec3_add_vecs(vec4_divide_scalar_2d(b, b.w), display->center);
-        triangles_out[i].c = vec3_add_vecs(vec4_divide_scalar_2d(c, c.w), display->center);
+        triangles_out[i].a = mat4_project_vec4(mvp, a);
+        triangles_out[i].b = mat4_project_vec4(mvp, b);
+        triangles_out[i].c = mat4_project_vec4(mvp, c);
     }
 
     return triangles_out;
