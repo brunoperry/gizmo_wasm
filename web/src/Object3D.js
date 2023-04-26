@@ -1,18 +1,29 @@
 import Mesh from "./Mesh.js";
+import Resources from "./Resources.js";
 import Transform from "./Transform.js";
 import WASM from "./WASM.js";
-import { mat4_make_model, mat4_to_buffer } from "./math.js";
+import {
+  mat4_from_quat,
+  mat4_make_model,
+  mat4_make_translation,
+  mat4_mul_mat4,
+  mat4_to_buffer,
+} from "./math.js";
 
 export default class Object3D {
   static BUFFER_SIZE = 5;
+
+  isDynamic = false;
+  rigidBody = null;
   #data;
   #mesh;
   #transform;
 
   #model_buffer;
-  constructor(data) {
-    this.#data = data;
-    this.#mesh = new Mesh(data);
+  constructor(objName) {
+    this.#data = Resources.get_object(objName);
+
+    this.#mesh = new Mesh(this.#data);
     this.#transform = new Transform();
   }
   get mesh() {
@@ -32,7 +43,15 @@ export default class Object3D {
   }
 
   update() {
-    const modelMatrix = mat4_make_model(this.#transform);
+    let modelMatrix;
+    if (this.isDynamic) {
+      const carPosition = this.rigidBody.position;
+      const carOrientation = mat4_from_quat(this.rigidBody.rotation);
+      modelMatrix = mat4_mul_mat4(carOrientation, mat4_make_translation(carPosition));
+    } else {
+      modelMatrix = mat4_make_model(this.#transform);
+    }
+
     new Float32Array(WASM.mem, this.#model_buffer, 16).set(mat4_to_buffer(modelMatrix));
   }
 

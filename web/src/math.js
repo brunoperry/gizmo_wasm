@@ -1,3 +1,6 @@
+/////////
+// Vec3
+/////////
 export const vec3 = (x = 0, y = 0, z = 0) => {
   return { x: x, y: y, z: z };
 };
@@ -41,7 +44,9 @@ export const vec3_normalize = (v) => {
 export const vec3_negate = (v) => {
   return vec3(-v.x, -v.y, -v.z);
 };
-
+export const VEC3_UP = vec3(0, 1, 0);
+export const VEC3_RIGHT = vec3(1, 0, 0);
+export const VEC3_FORWARD = vec3(0, 0, 1);
 /////////
 // Vec4
 /////////
@@ -64,6 +69,73 @@ export const vec4_divide_scalar_2d = (vector, scalar) => {
   result.y = vector.y / scalar;
   result.z = 0;
   return result;
+};
+
+/////////
+// Matrix3
+/////////
+export const mat3_identity = () => {
+  return [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ];
+};
+export const mat3_inertia = (x, y, z) => {
+  return [
+    [x, 0, 0],
+    [0, y, 0],
+    [0, 0, z],
+  ];
+};
+export const mat3_mul_vec3 = (m, v) => {
+  const result = vec3();
+  result.x = m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z;
+  result.y = m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z;
+  result.z = m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z;
+
+  return result;
+};
+export const mat3_mul_mat3 = (a, b) => {
+  const m = mat3_identity();
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      m[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+    }
+  }
+  return m;
+};
+export const mat3_inverse = (mat) => {
+  const a11 = mat[0][0];
+  const a12 = mat[0][1];
+  const a13 = mat[0][2];
+  const a21 = mat[1][0];
+  const a22 = mat[1][1];
+  const a23 = mat[1][2];
+  const a31 = mat[2][0];
+  const a32 = mat[2][1];
+  const a33 = mat[2][2];
+
+  const det =
+    a11 * (a22 * a33 - a32 * a23) -
+    a21 * (a12 * a33 - a32 * a13) +
+    a31 * (a12 * a23 - a22 * a13);
+
+  const b11 = (a22 * a33 - a32 * a23) / det;
+  const b12 = -(a12 * a33 - a32 * a13) / det;
+  const b13 = (a12 * a23 - a22 * a13) / det;
+  const b21 = -(a21 * a33 - a31 * a23) / det;
+  const b22 = (a11 * a33 - a31 * a13) / det;
+  const b23 = -(a11 * a23 - a21 * a13) / det;
+  const b31 = (a21 * a32 - a31 * a22) / det;
+  const b32 = -(a11 * a32 - a31 * a12) / det;
+  const b33 = (a11 * a22 - a21 * a12) / det;
+
+  return [
+    [b11, b12, b13],
+    [b21, b22, b23],
+    [b31, b32, b33],
+  ];
 };
 
 /////////
@@ -98,6 +170,26 @@ export const mat4_make_translation = (t) => {
   m[1][3] = t.y;
   m[2][3] = t.z;
   return m;
+};
+export const mat4_make_rotation_quat = (quat) => {
+  const xx = quat.x * quat.x;
+  const xy = quat.x * quat.y;
+  const xz = quat.x * quat.z;
+  const xw = quat.x * quat.w;
+  const yy = quat.y * quat.y;
+  const yz = quat.y * quat.z;
+  const yw = quat.y * quat.w;
+  const zz = quat.z * quat.z;
+  const zw = quat.z * quat.w;
+
+  const out = mat4_identity();
+
+  out[0] = [1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw), 0];
+  out[1] = [2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw), 0];
+  out[2] = [2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy), 0];
+  out[3] = [0, 0, 0, 1];
+
+  return out;
 };
 export const mat4_make_rotation = (rot) => {
   const rotationXMatrix = mat4_make_rotation_x(radians(rot.x));
@@ -165,8 +257,6 @@ export const mat4_mul_vec4 = (m, v) => {
   return result;
 };
 export const mat4_make_model = (transform) => {
-  const m = mat4_identity();
-
   const translationMatrix = mat4_make_translation(transform.position);
   const rotationMatrix = mat4_make_rotation(transform.rotation);
   const scaleMatrix = mat4_make_scale(transform.scale);
@@ -200,11 +290,9 @@ export const mat4_make_perspective = (fov, aspect, near, far) => {
 
   return m;
 };
-
 export const mat4_to_buffer = (mat4) => {
   return mat4.flatMap((row) => [...row]);
 };
-
 export const mat4_from_quat = (q) => {
   const m = mat4_zero();
 
@@ -236,7 +324,6 @@ export const mat4_from_quat = (q) => {
 
   return m;
 };
-
 export const mat4_mul_vec3_project = (mat_proj, v) => {
   // multiply the projection matrix by our original vector
   const result = mat4_mul_vec3(mat_proj, v);
@@ -253,28 +340,72 @@ export const mat4_mul_vec3_project = (mat_proj, v) => {
 /////////
 // Quaternions
 ////////
-export const quat = (w, x, y, z) => {
+export const quat = (w = 0, x = 0, y = 0, z = 0) => {
   return { w: w, x: x, y: y, z: z };
 };
-export const quat_from_axis_angle = (x, y, z, angle) => {
-  const quat = quat();
-  quat.w = Math.cos(angle / 2);
-  quat.x = x * Math.sin(angle / 2);
-  quat.y = y * Math.sin(angle / 2);
-  quat.z = z * Math.sin(angle / 2);
-  return quat;
+export const quat_from_vec = (vec) => {
+  return quat(0, vec.x, vec.y, vec.z);
+};
+export const quat_from_axis_angle = (axis, angle) => {
+  const halfAngle = angle / 2;
+  const sin = Math.sin(halfAngle);
+  const cos = Math.cos(halfAngle);
+
+  return quat(cos, sin * axis.x, sin * axis.y, sin * axis.z);
 };
 export const quat_multiply = (q1, q2) => {
-  const quat = quat();
-  quat.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
-  quat.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
-  quat.y = q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z;
-  quat.z = q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x;
-  return quat;
+  const out = quat(1, 0, 0, 0);
+  out.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
+  out.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
+  out.y = q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z;
+  out.z = q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x;
+  return out;
 };
-
 export const quat_conjugate = (q) => {
   return quat(-q.x, -q.y, -q.z, q.w);
+};
+export const quat_euler = (x, y, z) => {
+  const qx = quat_from_axis_angle(VEC3_RIGHT, x);
+  const qy = quat_from_axis_angle(VEC3_UP, y);
+  const qz = quat_from_axis_angle(VEC3_FORWARD, z);
+
+  return quat_multiply(quat_multiply(qx, qy), qz);
+};
+export const quat_normalize = (q) => {
+  const out = quat(q.w, q.x, q.y, q.z);
+  const length = Math.sqrt(out.w * out.w + out.x * out.x + out.y * out.y + out.z * out.z);
+  if (length === 0) {
+    out.w = 1;
+    out.x = 0;
+    out.y = 0;
+    out.z = 0;
+  } else {
+    const invLength = 1 / length;
+    out.w *= invLength;
+    out.x *= invLength;
+    out.y *= invLength;
+    out.z *= invLength;
+  }
+  return out;
+};
+export const quat_to_matrix = (quat) => {
+  const { x, y, z, w } = quat;
+  const xx = x * x;
+  const xy = x * y;
+  const xz = x * z;
+  const xw = x * w;
+  const yy = y * y;
+  const yz = y * z;
+  const yw = y * w;
+  const zz = z * z;
+  const zw = z * w;
+
+  const row1 = [1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw), 0];
+  const row2 = [2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw), 0];
+  const row3 = [2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy), 0];
+  const row4 = [0, 0, 0, 1];
+
+  return [row1, row2, row3, row4];
 };
 
 const radians = (degrees) => {

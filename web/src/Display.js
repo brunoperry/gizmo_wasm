@@ -59,6 +59,10 @@ export default class Display {
     });
     this.update();
   }
+
+  /**
+   * TESTS
+   */
   #project_triangles(obj3d, mvp) {
     const triangles_out = [];
     const triangles_in = [];

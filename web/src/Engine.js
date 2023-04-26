@@ -1,6 +1,6 @@
 import Display from "./Display.js";
+import PhysicsSystem from "./PhysicsEngine.js";
 import Resources from "./Resources.js";
-import InputController from "./InputController.js";
 import WASM from "./WASM.js";
 
 export default class Engine {
@@ -19,6 +19,7 @@ export default class Engine {
   #display = null;
   #audio = null;
 
+  #physics_system = null;
   #scene = null;
 
   #loopID = null;

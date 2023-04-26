@@ -1,6 +1,6 @@
+#include <stdbool.h>
 #include "gmath.h"
 #include "wasm.h"
-#include "triangle.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Texture coordinates Implementations
@@ -10,7 +10,10 @@ tex2_t tex2_clone(tex2_t *t)
     tex2_t result = {t->u, t->v};
     return result;
 }
-
+tex2_t tex2_new(float u, float v)
+{
+    return (tex2_t){u, v};
+}
 ///////////////////////////////////////////////////////////////////////////////
 // Vector 2D Implementations
 ///////////////////////////////////////////////////////////////////////////////
@@ -216,89 +219,6 @@ mat4_t mat4_from_buffer(float *b)
                  {b[12], b[13], b[14], b[15]}}};
     return m;
 }
-mat4_t mat4_make_scale(vec3_t t)
-{
-    // | sx  0  0  0 |
-    // |  0 sy  0  0 |
-    // |  0  0 sz  0 |
-    // |  0  0  0  1 |
-    mat4_t m = mat4_identity();
-    m.m[0][0] = t.x;
-    m.m[1][1] = t.y;
-    m.m[2][2] = t.z;
-    return m;
-}
-mat4_t mat4_make_translation(vec3_t t)
-{
-    // | 1  0  0  tx |
-    // | 0  1  0  ty |
-    // | 0  0  1  tz |
-    // | 0  0  0  1  |
-    mat4_t m = mat4_identity();
-    m.m[0][3] = t.x;
-    m.m[1][3] = t.y;
-    m.m[2][3] = t.z;
-    return m;
-}
-mat4_t mat4_make_rotation(vec3_t rot)
-{
-    mat4_t m = mat4_identity();
-
-    mat4_t rotation_matrix_x = mat4_make_rotation_x(rot.x);
-    mat4_t rotation_matrix_y = mat4_make_rotation_y(rot.y);
-    mat4_t rotation_matrix_z = mat4_make_rotation_z(rot.z);
-
-    m = mat4_mul_mat4(rotation_matrix_z, m);
-    m = mat4_mul_mat4(rotation_matrix_y, m);
-    m = mat4_mul_mat4(rotation_matrix_x, m);
-
-    return m;
-}
-mat4_t mat4_make_rotation_x(float angle)
-{
-    float c = g_cos(angle);
-    float s = g_sin(angle);
-    // | 1  0  0  0 |
-    // | 0  c -s  0 |
-    // | 0  s  c  0 |
-    // | 0  0  0  1 |
-    mat4_t m = mat4_identity();
-    m.m[1][1] = c;
-    m.m[1][2] = -s;
-    m.m[2][1] = s;
-    m.m[2][2] = c;
-    return m;
-}
-mat4_t mat4_make_rotation_y(float angle)
-{
-    float c = g_cos(angle);
-    float s = g_sin(angle);
-    // |  c  0  s  0 |
-    // |  0  1  0  0 |
-    // | -s  0  c  0 |
-    // |  0  0  0  1 |
-    mat4_t m = mat4_identity();
-    m.m[0][0] = c;
-    m.m[0][2] = s;
-    m.m[2][0] = -s;
-    m.m[2][2] = c;
-    return m;
-}
-mat4_t mat4_make_rotation_z(float angle)
-{
-    float c = g_cos(angle);
-    float s = g_sin(angle);
-    // | c -s  0  0 |
-    // | s  c  0  0 |
-    // | 0  0  1  0 |
-    // | 0  0  0  1 |
-    mat4_t m = mat4_identity();
-    m.m[0][0] = c;
-    m.m[0][1] = -s;
-    m.m[1][0] = s;
-    m.m[1][1] = c;
-    return m;
-}
 mat4_t mat4_mul_mat4(mat4_t a, mat4_t b)
 {
     mat4_t m;
@@ -330,21 +250,7 @@ vec3_t mat4_mul_vec3(mat4_t m, vec3_t v)
 
     return result;
 }
-vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v)
-{
-    // multiply the projection matrix by our original vector
-    vec4_t result = mat4_mul_vec4(mat_proj, v);
-
-    // perform perspective divide with original z-value that is now stored in w
-    if (result.w != 0.0)
-    {
-        result.x /= result.w;
-        result.y /= result.w;
-        result.z /= result.w;
-    }
-    return result;
-}
-vec3_t mat4_project_vec4(mat4_t mvp, vec4_t vec)
+vec4_t mat4_project_vec4(mat4_t mvp, vec4_t vec)
 {
     // Perform perspective division
     vec4_t projectedVertex = perspective_divide(vec);
@@ -358,9 +264,11 @@ vec3_t mat4_project_vec4(mat4_t mvp, vec4_t vec)
     float y = halfHeight * (1.0f - projectedVertex.y / projectedVertex.w);
     float z = projectedVertex.z / projectedVertex.w;
 
-    return vec3_new(x, y, z);
+    return vec4_new(x, y, z, vec.w);
 }
-
+triangle_t mat4_project_triangle(mat4_t mvp, triangle_t tri)
+{
+}
 void mat4_log(mat4_t m)
 {
     log_matrix(m.m[0][0], m.m[0][1], m.m[0][2], m.m[0][3], m.m[1][0], m.m[1][1], m.m[1][2], m.m[1][3], m.m[2][0], m.m[2][1], m.m[2][2], m.m[2][3], m.m[3][0], m.m[3][1], m.m[3][2], m.m[3][3]);
@@ -395,7 +303,19 @@ vec2_t vec2_from_vec4(vec4_t v)
 //////////////////////////////////////
 // Math
 //////////////////////////////////////
+int min(int a, int b)
+{
+    return a < b ? a : b;
+}
+int max(int a, int b)
+{
+    return a > b ? a : b;
+}
 
+// bool is_inside_triangle(const vec3_t &barycentric)
+// {
+//     return barycentric.x >= 0 && barycentric.y >= 0 && barycentric.z >= 0;
+// }
 //////////////////////////////////////
 // Utils
 //////////////////////////////////////

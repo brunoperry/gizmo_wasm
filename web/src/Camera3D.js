@@ -1,4 +1,5 @@
 import Display from "./Display.js";
+import InputController from "./InputController.js";
 import Transform from "./Transform.js";
 import WASM from "./WASM.js";
 import { vec3, mat4_make_perspective, mat4_to_buffer, mat4_make_view } from "./math.js";
@@ -34,6 +35,9 @@ export default class Camera3D {
     this.#updateProjectionMatrix();
   }
 
+  /**
+   * DEBUG
+   */
   #updateProjectionMatrix() {
     const projectionMatrix = mat4_make_perspective(
       this.fov,

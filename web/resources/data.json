@@ -11,6 +11,12 @@
       "type": "obj",
       "url": "./resources/meshes/triangle.obj",
       "texture": "portalegre"
+    },
+    {
+      "name": "comet",
+      "type": "obj",
+      "url": "./resources/meshes/comet.obj",
+      "texture": "portalegre"
     }
   ],
   "images": [

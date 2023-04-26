@@ -2,6 +2,9 @@ import Resources from "./src/Resources.js";
 import Engine from "./src/Engine.js";
 import Scene from "./src/Scene.js";
 import { vec3 } from "./src/math.js";
+import InputController from "./src/InputController.js";
+import Car3D from "./src/Car3D.js";
+import Object3D from "./src/Object3D.js";
 
 /**
  * ENGINE STUFF
@@ -13,21 +16,24 @@ const engine = new Engine((e, data) => {});
  * SCENE STUFF
  */
 class Demo extends Scene {
-  #obj1;
+  #obj;
 
   x = -1;
   constructor() {
     super("demo");
 
-    this.#obj1 = Resources.get_object("cube");
-    this.add_obj3d(this.#obj1);
+    this.#obj = new Object3D("triangle");
+    this.add_obj3d(this.#obj);
   }
 
   update(delta) {
-    this.#obj1.transform.position = vec3(Math.sin(this.x / 50), 0, 20);
-    this.#obj1.transform.rotation = vec3(this.x, this.x, 0);
+    const t = Math.sin(this.x / 10);
+    this.#obj.transform.position = vec3(0, 0, 20);
+    this.#obj.transform.rotation = vec3(this.x + t, this.x + t, this.x + t);
     this.x -= 1;
+
     this.camera.position = vec3(0, 0, -2);
+    this.camera.target = vec3(0, 0, 20);
     super.update(delta);
   }
 }
@@ -66,6 +72,7 @@ window.onload = async () => {
     e.stopPropagation();
   });
 
+  InputController.initialize();
   await engine.start_engine(Demo);
 
   // engine.play();

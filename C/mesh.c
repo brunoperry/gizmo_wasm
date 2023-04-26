@@ -26,19 +26,28 @@ void mesh_initialize(mesh_t mesh)
 {
     int curr_tri = 0;
     float *verts = mesh.vertices;
+    float *uvs = mesh.uvs;
 
     for (size_t i = 0; i < mesh.v_length; i += 9)
     {
         triangle_t tri;
-        tri.a = vec3_new(verts[i + 0], verts[i + 1], verts[i + 2]);
-        tri.b = vec3_new(verts[i + 3], verts[i + 4], verts[i + 5]);
-        tri.c = vec3_new(verts[i + 6], verts[i + 7], verts[i + 8]);
+        tri.a = vec4_new(verts[i + 0], verts[i + 1], verts[i + 2], 1.0f);
+        tri.b = vec4_new(verts[i + 3], verts[i + 4], verts[i + 5], 1.0f);
+        tri.c = vec4_new(verts[i + 6], verts[i + 7], verts[i + 8], 1.0f);
         mesh.triangles[curr_tri] = tri;
 
         curr_tri++;
     }
+
+    curr_tri = 0;
+    for (size_t i = 0; i < mesh.uv_length; i += 2)
+    {
+        tex2_t uv = tex2_new(uvs[i + 0], uvs[i + 1]);
+        mesh.triangles[curr_tri].uv = uv;
+        curr_tri++;
+    }
 }
 
-void mesh_log(mesh_t)
+void mesh_log(mesh_t mesh)
 {
 }

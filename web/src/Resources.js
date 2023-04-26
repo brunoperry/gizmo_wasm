@@ -190,7 +190,7 @@ export default class Resources {
       }
     }
 
-    const object3d = Resources.#make_fan_strip({
+    const objOut = Resources.#make_fan_strip({
       vertices: vertices,
       uvs: uvs,
       normals: normals,
@@ -198,45 +198,13 @@ export default class Resources {
       name: name,
     });
 
-    return object3d;
+    return objOut;
   }
   static async #load_gltf_file(data_path) {
-    // const req = await fetch(data_path);
-    // const res = await req.json();
-
-    // const mesha = res.meshes[0];
-    // const primitive = mesha.primitives[0];
-    // const attributes = primitive.attributes;
-    // const indices = primitive.indices;
-
     const response = await fetch(data_path);
     const data = await response.json();
     const meshData = data.meshes[0];
     return new Object3D(data);
-
-    // const mesh = {
-    //   vertices: data.accessors[vertices].bufferView.buffer,
-    //   indices: data.accessors[indices].bufferView.buffer,
-    //   vertexCount: data.accessors[vertices].count,
-    //   indexCount: data.accessors[indices].count,
-    //   vertexStride: 12, // Assuming the position attribute has 3 floats
-    //   indexType: data.accessors[indices].componentType,
-    // };
-
-    // const mesh = new Mesh(meshData.vertices, meshData.indices, material, texture);
-    // mesh.vertexCount = meshData.vertexCount;
-    // mesh.indexCount = meshData.indexCount;
-    // mesh.vertexStride = meshData.vertexStride;
-    // mesh.indexType = meshData.indexType;
-
-    // return new Object3D({
-    //   vertices: fanned_vecs,
-    //   uvs: fanned_uvs,
-    //   normals: fanned_normals,
-    //   name: mesh_data.name,
-    //   texture: mesh_data.texture,
-    // });
-    console.log(res);
   }
   static async #load_image_file(data, as_image = false) {
     return new Promise((resolve, reject) => {
@@ -317,13 +285,13 @@ export default class Resources {
 
       fanned_normals.push(...normals[a_index]);
     }
-    return new Object3D({
+    return {
       vertices: fanned_vecs,
       uvs: fanned_uvs,
       normals: fanned_normals,
       name: mesh_data.name,
       texture: mesh_data.texture,
-    });
+    };
   }
   static #removeEmptyStrings(data) {
     let dataOut = [];

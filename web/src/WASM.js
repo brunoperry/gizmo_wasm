@@ -29,7 +29,7 @@ export default class WASM {
     console.log("float", f);
   }
   static log_matrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) {
-    console.log([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]);
+    // console.log([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]);
     console.table([
       [a, b, c, d],
       [e, f, g, h],
@@ -37,11 +37,11 @@ export default class WASM {
       [m, n, o, p],
     ]);
   }
-  static log_triangle(ax, ay, az, bx, by, bz, cx, cy, cz) {
+  static log_triangle(ax, ay, az, aw, bx, by, bz, bw, cx, cy, cz, cw) {
     const tri = {
-      a: vec3(ax, ay, az),
-      b: vec3(bx, by, bz),
-      c: vec3(cx, cy, cz),
+      a: vec4(ax, ay, az, aw),
+      b: vec4(bx, by, bz, bw),
+      c: vec4(cx, cy, cz, cw),
     };
     console.table(tri);
   }
