@@ -28,6 +28,9 @@ export default class WASM {
   static log_float(f) {
     console.log("float", f);
   }
+  static log_int(i) {
+    console.log("int", i);
+  }
   static log_matrix(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) {
     // console.log([a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]);
     console.table([
@@ -36,6 +39,9 @@ export default class WASM {
       [i, j, k, l],
       [m, n, o, p],
     ]);
+  }
+  static log_polygon(num_verts) {
+    console.log("polygon verts:", num_verts);
   }
   static log_triangle(ax, ay, az, aw, bx, by, bz, bw, cx, cy, cz, cw) {
     const tri = {

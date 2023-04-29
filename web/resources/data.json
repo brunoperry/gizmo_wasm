@@ -7,6 +7,18 @@
       "texture": "portalegre"
     },
     {
+      "name": "plane",
+      "type": "obj",
+      "url": "./resources/meshes/plane.obj",
+      "texture": "portalegre"
+    },
+    {
+      "name": "half",
+      "type": "obj",
+      "url": "./resources/meshes/half_cube.obj",
+      "texture": "portalegre"
+    },
+    {
       "name": "triangle",
       "type": "obj",
       "url": "./resources/meshes/triangle.obj",

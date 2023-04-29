@@ -6,9 +6,12 @@ camera3d_t *camera_build(unsigned int *cam_buffer)
 
     cam_buffer[0] = (unsigned int)malloc(16 * sizeof(float));
     cam_buffer[1] = (unsigned int)malloc(16 * sizeof(float));
+    cam_buffer[2] = (unsigned int)malloc(3 * sizeof(float));
 
     cam3d->view_buffer = (float *)cam_buffer[0];
     cam3d->projection_buffer = (float *)cam_buffer[1];
+    cam3d->position_buffer = (float *)cam_buffer[2];
+    cam3d->clipping = init_frustum_planes();
 
     return cam3d;
 };

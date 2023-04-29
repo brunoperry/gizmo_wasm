@@ -1,5 +1,4 @@
 import Display from "./Display.js";
-import PhysicsSystem from "./PhysicsEngine.js";
 import Resources from "./Resources.js";
 import WASM from "./WASM.js";
 
@@ -19,7 +18,6 @@ export default class Engine {
   #display = null;
   #audio = null;
 
-  #physics_system = null;
   #scene = null;
 
   #loopID = null;
@@ -46,8 +44,10 @@ export default class Engine {
           log_matrix: WASM.log_matrix,
           log_triangle: WASM.log_triangle,
           log_float: WASM.log_float,
+          log_int: WASM.log_int,
           log_vec3: WASM.log_vec3,
           log_vec4: WASM.log_vec4,
+          log_polygon: WASM.log_polygon,
         },
       }
     );

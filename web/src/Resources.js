@@ -185,6 +185,7 @@ export default class Resources {
           }
           break;
         case "g":
+        case "o":
           name = tokens[1];
           break;
       }

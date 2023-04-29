@@ -1,10 +1,13 @@
 #include "display.h"
-
 #include "wasm.h"
+
+static triangle_t *projected_triangles;
+static int num_triangles;
 
 display_t *display_build(int width, int height)
 {
     display_t *display = malloc(sizeof(display_t));
+    projected_triangles = malloc(MAX_TRIANGLES * sizeof(triangle_t));
 
     int length = width * height;
 
@@ -17,50 +20,80 @@ display_t *display_build(int width, int height)
 
     return display;
 }
-
-void display_draw(display_t *display, object3d_t *obj3d, mat4_t mvp)
+// void display_draw(display_t *display, object3d_t *obj3d, mat4_t mvp, clipping_t clipping)
+void display_draw(display_t *display, object3d_t *obj3d, mat4_t mvp, camera3d_t camera)
 {
-
-    triangle_t *triangles = project_triangles(display, obj3d, mvp);
+    project_triangles(display, obj3d, mvp, camera);
 
     int color = 0xffffffff;
-
-    for (int i = 0; i < obj3d->mesh.num_triangles; i++)
+    for (int i = 0; i < num_triangles; i++)
     {
-        triangle_t tri = triangles[i];
-
-        // draw_pixel(display, tri.a.x, tri.a.y, color);
-        // draw_pixel(display, tri.b.x, tri.b.y, color);
-        // draw_pixel(display, tri.c.x, tri.c.y, color);
-
+        triangle_t tri = projected_triangles[i];
         draw_line(display, tri.a.x, tri.a.y, tri.b.x, tri.b.y, color);
         draw_line(display, tri.b.x, tri.b.y, tri.c.x, tri.c.y, color);
         draw_line(display, tri.c.x, tri.c.y, tri.a.x, tri.a.y, color);
     }
-
-    free(triangles);
 }
 
-triangle_t *project_triangles(display_t *display, object3d_t *obj3d, mat4_t mvp)
+// void project_triangles(display_t *display, clipping_t clipping, object3d_t *obj3d, mat4_t mvp)
+void project_triangles(display_t *display, object3d_t *obj3d, mat4_t mvp, camera3d_t camera)
 {
-    int num_tris = obj3d->mesh.num_triangles;
-    triangle_t *triangles_out = malloc(num_tris * sizeof(triangle_t));
+    int num_projected_tris = 0;
     triangle_t *triangles_in = obj3d->mesh.triangles;
-
-    for (int i = 0; i < num_tris; i++)
+    // triangle_t tris_to_clip[obj3d->mesh.num_triangles];
+    triangle_t *tris_to_clip = malloc(obj3d->mesh.num_triangles * sizeof(triangle_t));
+    // Project the triangles
+    for (int i = 0; i < obj3d->mesh.num_triangles; i++)
     {
-        // triangles_out[i] = mat4_project_triangle(mvp, triangles_in[i]);
-        // Apply the view-projection matrix to each vertex of the triangle
-        vec4_t a = mat4_mul_vec4(mvp, triangles_in[i].a);
-        vec4_t b = mat4_mul_vec4(mvp, triangles_in[i].b);
-        vec4_t c = mat4_mul_vec4(mvp, triangles_in[i].c);
+        // Apply transform and the view-projection matrix to each vertex of the triangle
+        vec4_t a = mat4_project_vec4(mvp, mat4_mul_vec4(mvp, triangles_in[i].a));
+        vec4_t b = mat4_project_vec4(mvp, mat4_mul_vec4(mvp, triangles_in[i].b));
+        vec4_t c = mat4_project_vec4(mvp, mat4_mul_vec4(mvp, triangles_in[i].c));
 
-        triangles_out[i].a = mat4_project_vec4(mvp, a);
-        triangles_out[i].b = mat4_project_vec4(mvp, b);
-        triangles_out[i].c = mat4_project_vec4(mvp, c);
-        triangles_out[i].uv = (tex2_t){1.0, 1.0};
+        // Get the vector subtraction of B-A and C-A
+        vec3_t vector_ab = vec4_to_vec3(vec4_sub_vecs(b, a));
+        vec3_t vector_ac = vec4_to_vec3(vec4_sub_vecs(c, a));
+        vec3_normalize(&vector_ab);
+        vec3_normalize(&vector_ac);
+
+        // Compute the face normal (using cross product to find perpendicular)
+        vec3_t normal = vec3_cross(vector_ab, vector_ac);
+        vec3_normalize(&normal);
+
+        // Find the vector between vertex A in the triangle and the camera origin
+        vec3_t origin = {0, 0, -2};
+        vec3_t camera_ray = vec3_sub_vecs(origin, (vec3_t){a.x, a.y, a.z});
+
+        // Calculate how aligned the camera ray is with the face normal (using dot product).
+        // Backface culling, bypassing triangles that are looking away from the camera
+        if (vec3_dot(normal, camera_ray) < 0)
+            continue;
+        tris_to_clip[num_projected_tris] = (triangle_t){a, b, c};
+        num_projected_tris++;
     }
-    return triangles_out;
+
+    // Now we have the total triangles to render after backface culling, lets clip them
+    num_triangles = 0;
+    for (size_t i = 0; i < num_projected_tris; i++)
+    {
+        // Convert the triangle into a polygon
+        polygon_t polygon = polygon_from_triangle(tris_to_clip[i]);
+
+        // Clip the polygon
+        clip_polygon(camera.clipping, &polygon);
+
+        // Convert the polygon back into triangles
+        triangle_strip_t clip_result;
+        clip_result.tris = malloc(MAX_NUM_POLY_TRIANGLES * sizeof(triangle_t));
+        triangles_from_polygon(polygon, &clip_result);
+        for (size_t j = 0; j < clip_result.num_tris; j++)
+        {
+            projected_triangles[num_triangles + j] = clip_result.tris[j];
+        }
+        num_triangles += clip_result.num_tris;
+        free(clip_result.tris);
+    }
+    free(tris_to_clip);
 }
 
 void draw_line(display_t *display, int x0, int y0, int x1, int y1, int color)

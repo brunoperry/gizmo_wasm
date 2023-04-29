@@ -91,6 +91,15 @@ vec3_t vec3_sub_vecs(vec3_t a, vec3_t b)
         .z = a.z - b.z};
     return result;
 }
+vec4_t vec4_sub_vecs(vec4_t a, vec4_t b)
+{
+    vec4_t result = {
+        .x = a.x - b.x,
+        .y = a.y - b.y,
+        .z = a.z - b.z,
+        .w = a.w - b.w};
+    return result;
+}
 vec3_t vec3_sub_num(vec3_t a, float factor)
 {
     vec3_t result = {
@@ -190,6 +199,25 @@ vec4_t vec4_div_equals_num(vec4_t vec, float num)
     out.z = vec.z / num;
     out.w = 1;
     return out;
+}
+void vec4_normalize(vec4_t *vec)
+{
+    float length = sqrt(vec->x * vec->x + vec->y * vec->y + vec->z * vec->z + vec->w * vec->w);
+    if (length != 0)
+    {
+        vec->x /= length;
+        vec->y /= length;
+        vec->z /= length;
+        vec->w /= length;
+    }
+}
+vec3_t vec4_to_vec3(vec4_t v)
+{
+    return (vec3_t){v.x, v.y, v.z};
+}
+vec4_t vec4_merge_vec3(vec4_t a, vec3_t b)
+{
+    return (vec4_t){b.x, b.y, b.z, a.w};
 }
 void vec4_log(vec4_t v)
 {

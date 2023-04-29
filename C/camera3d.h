@@ -3,12 +3,15 @@
 
 #include "gmath.h"
 #include "walloc.h"
+#include "clipping.h"
 
 typedef struct
 {
     int id;
     float *view_buffer;
     float *projection_buffer;
+    float *position_buffer;
+    clipping_t clipping;
 
 } camera3d_t;
 

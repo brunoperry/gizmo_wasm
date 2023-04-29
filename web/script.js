@@ -1,9 +1,7 @@
-import Resources from "./src/Resources.js";
 import Engine from "./src/Engine.js";
 import Scene from "./src/Scene.js";
 import { vec3 } from "./src/math.js";
 import InputController from "./src/InputController.js";
-import Car3D from "./src/Car3D.js";
 import Object3D from "./src/Object3D.js";
 
 /**
@@ -28,12 +26,12 @@ class Demo extends Scene {
 
   update(delta) {
     const t = Math.sin(this.x / 10);
-    this.#obj.transform.position = vec3(0, 0, 20);
+    this.#obj.transform.position = vec3(0, 0, 10 + t * 3);
     this.#obj.transform.rotation = vec3(this.x + t, this.x + t, this.x + t);
     this.x -= 1;
 
-    this.camera.position = vec3(0, 0, -2);
-    this.camera.target = vec3(0, 0, 20);
+    this.camera.position = vec3(0, 0, 0);
+    this.camera.target = vec3(0, 0, 1);
     super.update(delta);
   }
 }
@@ -64,11 +62,6 @@ window.onload = async () => {
   };
 
   document.addEventListener("wasm_info", (e) => {
-    // ui.update({
-    //   fps: engine.fps,
-    //   verts: e.detail.verts,
-    //   tris: e.detail.tris,
-    // });
     e.stopPropagation();
   });
 

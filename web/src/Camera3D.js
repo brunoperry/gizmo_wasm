@@ -2,13 +2,20 @@ import Display from "./Display.js";
 import InputController from "./InputController.js";
 import Transform from "./Transform.js";
 import WASM from "./WASM.js";
-import { vec3, mat4_make_perspective, mat4_to_buffer, mat4_make_view } from "./math.js";
+import {
+  vec3,
+  mat4_make_perspective,
+  mat4_to_buffer,
+  mat4_make_view,
+  vec3_to_buffer,
+} from "./math.js";
 
 export default class Camera3D {
-  static BUFFER_SIZE = 2;
+  static BUFFER_SIZE = 3;
 
   #projection_buffer;
   #view_buffer;
+  #position_buffer;
   #transform;
   #FOV;
 
@@ -27,6 +34,8 @@ export default class Camera3D {
   initialize(buffers) {
     this.#view_buffer = buffers[0];
     this.#projection_buffer = buffers[1];
+    this.#position_buffer = buffers[2];
+
     this.update();
   }
 
@@ -58,6 +67,7 @@ export default class Camera3D {
     return this.#transform.position;
   }
   set position(vec) {
+    new Float32Array(WASM.mem, this.#position_buffer, 3).set(vec3_to_buffer(vec));
     this.#transform.position = vec;
   }
 

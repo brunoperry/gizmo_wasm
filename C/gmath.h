@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 //////////////////////////////////////
 // Texture coordinates Operations
@@ -73,6 +74,10 @@ vec4_t vec4_new(float x, float y, float z, float w);
 vec3_t vec4_divide_scalar(vec4_t vector, float scalar);
 vec3_t vec4_divide_scalar_2d(vec4_t vector, float scalar);
 vec4_t vec4_div_equals_num(vec4_t vec, float num);
+vec4_t vec4_sub_vecs(vec4_t a, vec4_t b);
+void vec4_normalize(vec4_t *vec);
+vec3_t vec4_to_vec3(vec4_t v);
+vec4_t vec4_merge_vec3(vec4_t a, vec3_t b);
 void vec4_log(vec4_t v);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,7 +89,7 @@ typedef struct
     vec4_t b;
     vec4_t c;
 
-    tex2_t uv;
+    tex2_t *uvs;
     int color;
 
 } triangle_t;

@@ -43,7 +43,7 @@ void mesh_initialize(mesh_t mesh)
     for (size_t i = 0; i < mesh.uv_length; i += 2)
     {
         tex2_t uv = tex2_new(uvs[i + 0], uvs[i + 1]);
-        mesh.triangles[curr_tri].uv = uv;
+        // mesh.triangles[curr_tri].uv = uv;
         curr_tri++;
     }
 }
