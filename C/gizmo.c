@@ -3,9 +3,8 @@
 
 #include "display.h"
 #include "renderer.h"
-#include "camera.h"
-#include "cam.h"
-#include "light.h"
+#include "camera3d.h"
+#include "light3d.h"
 #include "object.h"
 #include "gmath.h"
 
@@ -29,24 +28,6 @@ static light_t light_to_build;
 static object3d_to_build_t object_to_build;
 static object3d_t *objs3d[MAX_OBJECTS];
 static int total_objs3d = 0;
-
-EXPORT unsigned int *set_cam_buffer()
-{
-    unsigned int *cam_buffer = malloc(7 * sizeof(int));
-
-    cam_buffer[0] = (unsigned int)malloc(3 * sizeof(float));
-    cam_buffer[1] = (unsigned int)malloc(3 * sizeof(float));
-    cam_buffer[2] = (unsigned int)malloc(3 * sizeof(float));
-    cam_buffer[3] = (unsigned int)malloc(3 * sizeof(float));
-
-    cam_buffer[4] = (unsigned int)malloc(sizeof(float));
-    cam_buffer[5] = (unsigned int)malloc(sizeof(float));
-    cam_buffer[6] = (unsigned int)malloc(sizeof(float));
-
-    cam = cam_build(cam_buffer);
-
-    return cam_buffer;
-}
 
 EXPORT unsigned int *set_camera_buffer()
 {
@@ -78,7 +59,7 @@ EXPORT unsigned int *set_camera_buffer()
 }
 EXPORT unsigned int *set_light_buffer()
 {
-    unsigned int *light_buffer = malloc(1 * sizeof(int));
+    unsigned int *light_buffer = malloc(2 * sizeof(int));
     light_to_build.direction = malloc(3 * sizeof(int));
     light_buffer[0] = (unsigned int)light_to_build.direction;
 
@@ -124,32 +105,31 @@ EXPORT void obj_done()
 }
 EXPORT void cam_done()
 {
-    camera = camera_build(&camera_to_build);
+    camera3d = camera_build(&camera_to_build);
 }
 EXPORT void light_done()
 {
-    light = light_build(&light_to_build);
+    light3d = light_build(&light_to_build);
 }
 
 EXPORT void update()
 {
     clear_z_buffer();
-    clear_color_buffer(0xFF1d0501);
-    mat4_t view_matrix = cam_view(camera);
-
-    console_log(133, cam->position[0]);
-
-    // double angle = cosine(12);
-
-    // console_log(123, angle);
+    clear_color_buffer(0xFF000000);
+    mat4_t view_matrix = cam_view();
+    mat4_t proj_matrix = camera3d->proj_matrix;
+    vec3_t light_dir = mat4_mul_vec3(view_matrix, vec3_new(light3d->direction[0], light3d->direction[1], light3d->direction[2]));
 
     int total_tris = 0;
     for (int i = 0; i < total_objs3d; i++)
     {
-        transform_object(*camera, view_matrix, objs3d[i], light, display_size);
+        // render_object(objs3d[i], view_matrix);
+        transform_object(view_matrix, proj_matrix, objs3d[i], display_size, light_dir);
         total_tris += objs3d[i]->mesh.num_triangles_to_render;
         draw(objs3d[i]);
     }
+
+    // apply_fisheye();
 
     info_log(total_tris, total_tris * 3);
 }

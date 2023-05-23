@@ -3,6 +3,7 @@ import Display from "./Display.js";
 export class UI {
   static Actions = {
     PLAY_PAUSE: "playpause",
+    NEXT: "next",
     RENDER_MODE: "rendermode",
   };
   #listener = null;
@@ -17,6 +18,7 @@ export class UI {
   #mem_label = null;
 
   #play_pause_btn = null;
+  #next_btn = null;
   #wireframe_btn = null;
   #shaded_btn = null;
   #textured_btn = null;
@@ -60,6 +62,13 @@ export class UI {
       if (this.#is_console_open) this.#close_console();
       this.#listener({
         action: UI.Actions.PLAY_PAUSE,
+      });
+    };
+
+    this.#next_btn = document.querySelector("#next");
+    this.#next_btn.onclick = () => {
+      this.#listener({
+        action: UI.Actions.NEXT,
       });
     };
 
@@ -149,9 +158,9 @@ export class UI {
     pause_icon.style.display = "none";
     if (is_playing) {
       pause_icon.style.display = "initial";
-      this.#crosshair.style.visibility = "initial";
+      // this.#crosshair.style.visibility = "initial";
       this.#play_pause_btn.className = "toggled-red";
-      this.#crosshair.style.scale = "1";
+      // this.#crosshair.style.scale = "1";
       this.log_console("Playing... use mouse and WASD, (esc) to exit.");
     } else {
       play_icon.style.display = "initial";

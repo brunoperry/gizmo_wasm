@@ -8,7 +8,10 @@ unsigned int *display_create(int width, int height)
     float *z_buffer = (float *)malloc(length * sizeof(float));
 
     display.width = width;
+    display.half_width = width / 2;
     display.height = height;
+    display.half_height = height / 2;
+
     display.color_buffer = color_buffer;
     display.z_buffer = z_buffer;
     display.bytes_length = width * height;
@@ -388,40 +391,34 @@ void draw_line(int x0, int y0, int x1, int y1, int color)
 
 void apply_fisheye()
 {
-    int x, y;
-    float center_x = (float)display.width / 2.0f;
-    float center_y = (float)display.height / 2.0f;
-    float distance, theta, r;
+    int centerX = display.half_width; // X coordinate of the fisheye center
+    float distortion = 10.5;
+    int width = display.width;
+    int height = display.height;
 
-    float k = 0.000002;
-
-    unsigned int dest[display.bytes_length];
-
-    for (y = 0; y < display.height; y++)
+    // Iterate through each pixel in the image buffer
+    for (int y = 0; y < height; y++)
     {
-        for (x = 0; x < display.width; x++)
+        for (int x = 0; x < width; x++)
         {
-            // Calculate distance from center
-            distance = sqrt((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
-            // Calculate angle from center
-            theta = g_aTan2((float)y - center_y, (float)x - center_x);
-            // Calculate distorted radius
-            r = distance * (1.0f + k * distance * distance);
-            // Calculate distorted coordinates
-            int x_distorted = (int)(center_x + r * g_cos(theta));
-            int y_distorted = (int)(center_y + r * g_sin(theta));
-            // Check if distorted coordinates are within image bounds
-            if (x_distorted >= 0 && x_distorted < display.width && y_distorted >= 0 && y_distorted < display.height)
-            {
-                dest[y * display.width + x] = display.color_buffer[y_distorted * display.width + x_distorted];
-                // Distort the pixel
-                // display.color_buffer[y * display.width + x] = display.color_buffer[y_distorted * display.width + x_distorted];
-            }
-        }
+            // Calculate the distance from the center
+            int dx = x - centerX;
 
-        for (int i = 0; i < display.bytes_length; i++)
-        {
-            console_log(i, dest[i]);
+            // Calculate the distortion factor
+            float distortionFactor = distortion * dx * dx / (width * width);
+
+            // Calculate the new y-coordinate
+            int newY = y + distortionFactor;
+
+            // Check if the new y-coordinate is within the image bounds
+            if (newY >= 0 && newY < height)
+            {
+                // Interpolate the color value from the original image buffer
+                unsigned int color = display.color_buffer[newY * width + x];
+
+                // Assign the interpolated color to the pixel
+                display.color_buffer[y * width + x] = color;
+            }
         }
     }
 }

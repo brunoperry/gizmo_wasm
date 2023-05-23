@@ -9,7 +9,6 @@ export default class Light3D {
   }
   initialize(buffers) {
     this.#dir_buffer = buffers[0];
-
     this.direction = this.#dir;
   }
 
@@ -18,7 +17,6 @@ export default class Light3D {
   }
   set direction(val) {
     this.#dir = val;
-
     new Float32Array(WASM.mem, this.#dir_buffer, 3).set([val.x, val.y, val.z]);
   }
 }

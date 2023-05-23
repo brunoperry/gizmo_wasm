@@ -29,10 +29,6 @@ export default class Scene {
     WASM.set_light_buffer(light);
   }
 
-  play() {
-    // this.player.move_forward();
-  }
-
   update() {
     this.player.update();
   }

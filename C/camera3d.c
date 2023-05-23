@@ -1,41 +1,38 @@
-#include "camera.h"
+#include "camera3d.h"
+#include "light3d.h"
 
 camera_t *camera_build(camera_t *cam_to_build)
 {
-    camera = (camera_t *)malloc(sizeof(camera_t));
-
-    camera->aspect_x = cam_to_build->aspect_x;
-    camera->aspect_y = cam_to_build->aspect_y;
-    camera->fov_x = cam_to_build->fov_x;
-    camera->fov_y = cam_to_build->fov_y;
-
-    camera->z_near = cam_to_build->z_near;
-    camera->z_far = cam_to_build->z_far;
-
-    camera->position = cam_to_build->position;
-    camera->direction = cam_to_build->direction;
-    camera->up = cam_to_build->up;
-
-    camera->proj_matrix = mat4_make_perspective(camera->fov_y[0], camera->aspect_y[0], camera->z_near[0], camera->z_far[0]);
+    camera3d = (camera_t *)malloc(sizeof(camera_t));
+    camera3d->aspect_x = cam_to_build->aspect_x;
+    camera3d->aspect_y = cam_to_build->aspect_y;
+    camera3d->fov_x = cam_to_build->fov_x;
+    camera3d->fov_y = cam_to_build->fov_y;
+    camera3d->z_near = cam_to_build->z_near;
+    camera3d->z_far = cam_to_build->z_far;
+    camera3d->position = cam_to_build->position;
+    camera3d->direction = cam_to_build->direction;
+    camera3d->up = cam_to_build->up;
+    camera3d->proj_matrix = mat4_make_perspective(camera3d->fov_y[0], camera3d->aspect_y[0], camera3d->z_near[0], camera3d->z_far[0]);
 
     init_frustum_planes();
 
-    return camera;
+    return camera3d;
 }
 
-mat4_t cam_view(camera_t *camera)
+mat4_t cam_view()
 {
-    vec3_t dir = vec3_new(camera->direction[0],
-                          camera->direction[1],
-                          camera->direction[2]);
+    vec3_t dir = vec3_new(camera3d->direction[0],
+                          camera3d->direction[1],
+                          camera3d->direction[2]);
 
-    vec3_t pos = vec3_new(camera->position[0],
-                          camera->position[1],
-                          camera->position[2]);
+    vec3_t pos = vec3_new(camera3d->position[0],
+                          camera3d->position[1],
+                          camera3d->position[2]);
 
-    vec3_t up = vec3_new(camera->up[0],
-                         camera->up[1],
-                         camera->up[2]);
+    vec3_t up = vec3_new(camera3d->up[0],
+                         camera3d->up[1],
+                         camera3d->up[2]);
 
     mat4_t view_matrix = mat4_make_translation(pos);
     vec3_t center = vec3_add(pos, dir);
@@ -44,70 +41,45 @@ mat4_t cam_view(camera_t *camera)
     return mat4_mul_mat4(look_at, view_matrix);
 }
 
-mat4_t cam_look_at(camera_t *camera, vec3_t target)
-{
-    vec3_t pos = vec3_new(camera->position[0],
-                          camera->position[1],
-                          camera->position[2]);
-
-    vec3_t up = vec3_new(camera->up[0],
-                         camera->up[1],
-                         camera->up[2]);
-
-    vec3_t z = vec3_sub(target, pos);
-    vec3_normalize(&z);
-    vec3_t x = vec3_cross(up, z);
-    vec3_normalize(&x);
-    vec3_t y = vec3_cross(z, x);
-
-    mat4_t view_matrix = {
-        {{x.x, x.y, x.z, -vec3_dot(x, pos)},
-         {y.x, y.y, y.z, -vec3_dot(y, pos)},
-         {z.x, z.y, z.z, -vec3_dot(z, pos)},
-         {0, 0, 0, 1}}};
-
-    return view_matrix;
-}
-
 // Clipping
 #define NUM_PLANES 6
 
 void init_frustum_planes()
 {
-    float cos_half_fov_x = g_cos(camera->fov_x[0] / (float)2.0);
-    float sin_half_fov_x = g_sin(camera->fov_x[0] / (float)2.0);
-    float cos_half_fov_y = g_cos(camera->fov_y[0] / (float)2.0);
-    float sin_half_fov_y = g_sin(camera->fov_y[0] / (float)2.0);
+    float cos_half_fov_x = g_cos(camera3d->fov_x[0] / (float)2.0);
+    float sin_half_fov_x = g_sin(camera3d->fov_x[0] / (float)2.0);
+    float cos_half_fov_y = g_cos(camera3d->fov_y[0] / (float)2.0);
+    float sin_half_fov_y = g_sin(camera3d->fov_y[0] / (float)2.0);
 
-    camera->frustum_planes[LEFT_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
-    camera->frustum_planes[LEFT_FRUSTUM_PLANE].normal.x = cos_half_fov_x;
-    camera->frustum_planes[LEFT_FRUSTUM_PLANE].normal.y = 0;
-    camera->frustum_planes[LEFT_FRUSTUM_PLANE].normal.z = sin_half_fov_x;
+    camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
+    camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].normal.x = cos_half_fov_x;
+    camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].normal.y = 0;
+    camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].normal.z = sin_half_fov_x;
 
-    camera->frustum_planes[RIGHT_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
-    camera->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.x = -cos_half_fov_x;
-    camera->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.y = 0;
-    camera->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.z = sin_half_fov_x;
+    camera3d->frustum_planes[RIGHT_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
+    camera3d->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.x = -cos_half_fov_x;
+    camera3d->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.y = 0;
+    camera3d->frustum_planes[RIGHT_FRUSTUM_PLANE].normal.z = sin_half_fov_x;
 
-    camera->frustum_planes[TOP_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
-    camera->frustum_planes[TOP_FRUSTUM_PLANE].normal.x = 0;
-    camera->frustum_planes[TOP_FRUSTUM_PLANE].normal.y = -cos_half_fov_y;
-    camera->frustum_planes[TOP_FRUSTUM_PLANE].normal.z = sin_half_fov_y;
+    camera3d->frustum_planes[TOP_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
+    camera3d->frustum_planes[TOP_FRUSTUM_PLANE].normal.x = 0;
+    camera3d->frustum_planes[TOP_FRUSTUM_PLANE].normal.y = -cos_half_fov_y;
+    camera3d->frustum_planes[TOP_FRUSTUM_PLANE].normal.z = sin_half_fov_y;
 
-    camera->frustum_planes[BOTTOM_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
-    camera->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.x = 0;
-    camera->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.y = cos_half_fov_y;
-    camera->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.z = sin_half_fov_y;
+    camera3d->frustum_planes[BOTTOM_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
+    camera3d->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.x = 0;
+    camera3d->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.y = cos_half_fov_y;
+    camera3d->frustum_planes[BOTTOM_FRUSTUM_PLANE].normal.z = sin_half_fov_y;
 
-    camera->frustum_planes[NEAR_FRUSTUM_PLANE].point = vec3_new(0, 0, *camera->z_near);
-    camera->frustum_planes[NEAR_FRUSTUM_PLANE].normal.x = 0;
-    camera->frustum_planes[NEAR_FRUSTUM_PLANE].normal.y = 0;
-    camera->frustum_planes[NEAR_FRUSTUM_PLANE].normal.z = 1;
+    camera3d->frustum_planes[NEAR_FRUSTUM_PLANE].point = vec3_new(0, 0, *camera3d->z_near);
+    camera3d->frustum_planes[NEAR_FRUSTUM_PLANE].normal.x = 0;
+    camera3d->frustum_planes[NEAR_FRUSTUM_PLANE].normal.y = 0;
+    camera3d->frustum_planes[NEAR_FRUSTUM_PLANE].normal.z = 1;
 
-    camera->frustum_planes[FAR_FRUSTUM_PLANE].point = vec3_new(0, 0, *camera->z_far);
-    camera->frustum_planes[FAR_FRUSTUM_PLANE].normal.x = 0;
-    camera->frustum_planes[FAR_FRUSTUM_PLANE].normal.y = 0;
-    camera->frustum_planes[FAR_FRUSTUM_PLANE].normal.z = -1;
+    camera3d->frustum_planes[FAR_FRUSTUM_PLANE].point = vec3_new(0, 0, *camera3d->z_far);
+    camera3d->frustum_planes[FAR_FRUSTUM_PLANE].normal.x = 0;
+    camera3d->frustum_planes[FAR_FRUSTUM_PLANE].normal.y = 0;
+    camera3d->frustum_planes[FAR_FRUSTUM_PLANE].normal.z = -1;
 }
 polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle)
 {
@@ -137,8 +109,8 @@ void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num
 }
 void clip_polygon_against_plane(polygon_t *polygon, int plane)
 {
-    vec3_t plane_point = camera->frustum_planes[plane].point;
-    vec3_t plane_normal = camera->frustum_planes[plane].normal;
+    vec3_t plane_point = camera3d->frustum_planes[plane].point;
+    vec3_t plane_normal = camera3d->frustum_planes[plane].normal;
 
     // Declare a static array of inside vertices that will be part of the final polygon returned via parameter
     vec3_t inside_vertices[MAX_NUM_POLY_VERTICES];

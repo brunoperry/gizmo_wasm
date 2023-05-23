@@ -12,6 +12,9 @@ const ui = new UI((e) => {
       engine.unlock = true;
       engine.is_running ? engine.stop() : engine.play();
       break;
+    case UI.Actions.NEXT:
+      engine.playOnce();
+      break;
     case UI.Actions.RENDER_MODE:
       engine.render_mode = e.mode;
       break;
@@ -36,7 +39,7 @@ const engine = new Engine((e, data) => {
       break;
     case Engine.States.READY:
       ui.enable();
-      ui.set_scene_name(engine.scene_name, "Noite da Mosca");
+      ui.set_scene_name(engine.scene_name);
       ui.set_scene_memory(engine.memory);
       ui.log_console(data);
       break;
@@ -48,18 +51,16 @@ const engine = new Engine((e, data) => {
  * SCENE STUFF
  */
 class Demo extends Scene {
-  #obj1;
+  #obj;
   #obj2;
   constructor() {
-    super("demo");
+    super("Noite da mosca");
 
-    this.#obj1 = Resources.get_object("floor");
-    // this.#obj2 = Resources.get_object("road");
+    this.#obj = Resources.get_object("portalegre");
+    this.#obj2 = Resources.get_object("road");
 
-    this.add_obj3d(this.#obj1);
-
-    // this.player.add_collider(this.#obj1);
-    // this.add_obj3d(this.#obj2);
+    this.add_obj3d(this.#obj);
+    this.add_obj3d(this.#obj2);
   }
 
   update(delta) {

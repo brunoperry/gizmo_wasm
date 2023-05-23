@@ -184,7 +184,7 @@ button:active {
 #controls {
   display: flex;
   gap: var(--gap);
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
   transition: opacity var(--speed) ease-in-out;
 }

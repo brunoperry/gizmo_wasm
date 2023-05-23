@@ -2,13 +2,15 @@
 #define DISPLAY_H
 
 #include "object.h"
-#include "light.h"
+#include "light3d.h"
 #include <stdlib.h>
 
 typedef struct
 {
     int width;
+    int half_width;
     int height;
+    int half_height;
     unsigned int *color_buffer;
     unsigned int *texture_buffer;
     int texture_width;
@@ -51,8 +53,8 @@ void draw_triangle_pixel(int x, int y, int color,
                          vec4_t point_a, vec4_t point_b, vec4_t point_c);
 void draw_pixel(int x, int y, int color);
 void draw_line(int x0, int y0, int x1, int y1, int color);
-void apply_fisheye();
 void clear_color_buffer(int color);
+void apply_fisheye();
 void clear_z_buffer(void);
 
 unsigned int *set_render_mode();

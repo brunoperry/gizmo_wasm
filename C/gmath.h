@@ -59,6 +59,8 @@ vec3_t vec3_rotate_y(vec3_t v, float angle);
 vec3_t vec3_rotate_z(vec3_t v, float angle);
 vec3_t vec3_clone(vec3_t *v);
 
+void vec3_log(vec3_t vec);
+
 //////////////////////////////////////
 // Vector 4D Operations
 //////////////////////////////////////
@@ -68,7 +70,7 @@ typedef struct
 } vec4_t;
 vec4_t vec4_clone(vec4_t *v);
 vec4_t vec4_new(float x, float y, float z, float w);
-
+void vec4_log(vec4_t vec);
 //////////////////////////////////////
 // Matrix Operations
 //////////////////////////////////////
@@ -91,6 +93,8 @@ vec3_t mat4_mul_vec3(mat4_t m, vec3_t v);
 mat4_t mat4_make_perspective(float fov, float aspect, float znear, float zfar);
 vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v);
 mat4_t mat4_look_at(vec3_t eye, vec3_t center, vec3_t up);
+
+void mat4_log(mat4_t mat);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Vector conversion funcs

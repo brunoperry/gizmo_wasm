@@ -153,6 +153,11 @@ vec3_t vec3_new(float x, float y, float z)
 {
     return (vec3_t){.x = x, .y = y, .z = z};
 }
+void vec3_log(vec3_t vec)
+{
+    wasm_vec3_log(vec.x, vec.y, vec.z);
+}
+
 //////////////////////////////////////
 // Vector 4D Implementations
 //////////////////////////////////////
@@ -164,6 +169,10 @@ vec4_t vec4_clone(vec4_t *v)
 {
     vec4_t result = {v->x, v->y, v->z, v->w};
     return result;
+}
+void vec4_log(vec4_t vec)
+{
+    wasm_vec4_log(vec.x, vec.y, vec.z, vec.w);
 }
 //////////////////////////////////////
 // Matrix Implementations
@@ -324,7 +333,6 @@ vec4_t mat4_mul_vec4_project(mat4_t mat_proj, vec4_t v)
     }
     return result;
 }
-
 mat4_t mat4_look_at(vec3_t eye, vec3_t center, vec3_t up)
 {
     mat4_t view_matrix = mat4_identity();
@@ -458,7 +466,14 @@ mat4_t mat4_look_at(vec3_t eye, vec3_t center, vec3_t up)
 
     return view_matrix;
 }
-
+void mat4_log(mat4_t mat)
+{
+    wasm_mat4_log(
+        mat.m[0][0], mat.m[0][1], mat.m[0][2], mat.m[0][3],
+        mat.m[1][0], mat.m[1][1], mat.m[1][2], mat.m[1][3],
+        mat.m[2][0], mat.m[2][1], mat.m[2][2], mat.m[2][3],
+        mat.m[3][0], mat.m[3][1], mat.m[3][2], mat.m[3][3]);
+}
 //////////////////////////////////////
 // Vector conversion funcs
 //////////////////////////////////////

@@ -19,6 +19,11 @@
       "name": "road",
       "url": "./resources/meshes/road.obj",
       "texture": "road"
+    },
+    {
+      "name": "triangle",
+      "url": "./resources/meshes/triangle.obj",
+      "texture": "null"
     }
   ],
   "images": [

@@ -16,7 +16,7 @@ export default class Engine {
   //debug purposes
   #locked = true;
 
-  #wasm = null;
+  // #wasm = null;
   #display = null;
   #audio = null;
 
@@ -36,14 +36,9 @@ export default class Engine {
 
   async start_engine(scene) {
     await Resources.initialize(this.#listener, Engine.States.LOADING);
+    await WASM.initialize();
     InputController.initialize();
 
-    const { instance } = await WebAssembly.instantiateStreaming(
-      fetch("./src/gizmo.wasm"),
-      { js: { console_log: WASM.wasm_log, info_log: WASM.wasm_info } }
-    );
-
-    this.#wasm = new WASM(instance.exports);
     this.#scene = new scene();
     // this.#audio = new AudioController();
     this.#display = new Display();
@@ -57,10 +52,16 @@ export default class Engine {
 
   play() {
     if (this.#loopID) return;
-    this.#scene.play();
     this.#display.lock_cursor = true;
     this.#loopID = requestAnimationFrame(() => this.#loop());
     this.#listener(Engine.States.PLAYING);
+  }
+  playOnce() {
+    console.log("lwkjd");
+    this.#listener(Engine.States.PLAYING);
+    this.#loop(true);
+    this.#loopID = null;
+    this.#listener(Engine.States.STOPPED);
   }
 
   stop() {
@@ -72,7 +73,7 @@ export default class Engine {
     this.#listener(Engine.States.STOPPED);
   }
 
-  #loop(e) {
+  #loop(once = false) {
     let time = performance.now();
     this.#delta_time = (time - this.#previous_frame_time) / 1000.0;
     this.#frame++;
@@ -86,11 +87,11 @@ export default class Engine {
 
     this.#scene.update(this.#delta_time);
 
-    this.#wasm.update();
+    WASM.update();
 
     this.#display.update();
 
-    this.#loopID = requestAnimationFrame((e) => this.#loop(e));
+    if (!once) this.#loopID = requestAnimationFrame(() => this.#loop());
   }
 
   get render_mode() {
@@ -98,7 +99,7 @@ export default class Engine {
   }
   set render_mode(val) {
     this.#display.render_mode = val;
-    this.#wasm.update();
+    WASM.update();
 
     //debug purposes, clear the if statment for production
     if (!this.#locked) this.#display.update();

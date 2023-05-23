@@ -1,8 +1,24 @@
 export default class WASM {
   static #c_module = null;
 
-  constructor(c_module) {
-    WASM.#c_module = c_module;
+  constructor() {}
+
+  static async initialize() {
+    const { instance } = await WebAssembly.instantiateStreaming(
+      fetch("./src/gizmo.wasm"),
+      {
+        js: {
+          console_log: WASM.wasm_log,
+          info_log: WASM.wasm_info,
+          float_log: WASM.float_log,
+          int_log: WASM.int_log,
+          vec3_log: WASM.vec3_log,
+          vec4_log: WASM.vec4_log,
+          mat4_log: WASM.mat4_log,
+        },
+      }
+    );
+    WASM.#c_module = instance.exports;
   }
 
   static wasm_log(a, b) {
@@ -15,14 +31,23 @@ export default class WASM {
       })
     );
   }
-  static get mem() {
-    return WASM.#c_module.memory.buffer;
+  static float_log(value) {
+    console.log("float", value);
   }
-  static get mem_size() {
-    return WASM.#c_module.memory.buffer.byteLength;
+  static int_log(value) {
+    console.log("int", value);
+  }
+  static vec3_log(x, y, z) {
+    console.log("vec3", `x:${x}, y:${y}, z:${z}`);
+  }
+  static vec4_log(x, y, z, w) {
+    console.log("vec4", `x:${x}, y:${y}, z:${z}, w:${w}`);
+  }
+  static mat4_log(x, y, z) {
+    console.log("vec3", `x:${x},y:${y},z:${z}`);
   }
 
-  update() {
+  static update() {
     WASM.#c_module.update();
   }
 
@@ -67,5 +92,12 @@ export default class WASM {
     const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
     obj3D.initialize(buffers);
     WASM.#c_module.obj_done();
+  }
+
+  static get mem() {
+    return WASM.#c_module.memory.buffer;
+  }
+  static get mem_size() {
+    return WASM.#c_module.memory.buffer.byteLength;
   }
 }

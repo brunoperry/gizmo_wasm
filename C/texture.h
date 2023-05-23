@@ -3,7 +3,7 @@
 
 #include "gmath.h"
 #include "mesh.h"
-#include "light.h"
+#include "light3d.h"
 #include "wasm.h"
 
 typedef struct

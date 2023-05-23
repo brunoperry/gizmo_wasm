@@ -3,8 +3,9 @@
 
 #include "object.h"
 #include "display.h"
-#include "light.h"
-#include "camera.h"
+#include "light3d.h"
+#include "camera3d.h"
 
-void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, light_t *light, display_size_t display);
+void render_object(object3d_t *obj3d, mat4_t view_matrix);
+void transform_object(mat4_t view_matrix, mat4_t proj_matrix, object3d_t *obj3d, display_size_t display, vec3_t light_dir);
 #endif

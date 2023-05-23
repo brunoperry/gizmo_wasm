@@ -1,7 +1,15 @@
 #include "renderer.h"
-#include "camera.h"
+#include "camera3d.h"
 
-void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, light_t *light, display_size_t display)
+void render_object(object3d_t *obj3d, mat4_t view_matrix)
+{
+
+    float_log(light3d->direction[0]);
+    float_log(light3d->direction[1]);
+    float_log(light3d->direction[2]);
+}
+
+void transform_object(mat4_t view_matrix, mat4_t proj_matrix, object3d_t *obj3d, display_size_t display, vec3_t light_dir)
 {
     int num_triangles_to_render = 0;
 
@@ -20,6 +28,9 @@ void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, li
     world_matrix = mat4_mul_mat4(scale_matrix, world_matrix);
     world_matrix = mat4_mul_mat4(rotation_matrix, world_matrix);
     world_matrix = mat4_mul_mat4(translation_matrix, world_matrix);
+
+    // Calculate the shade intensity based on how aliged is the normal with the flipped light direction ray
+    // vec3_t light_dir = mat4_mul_vec3(view_matrix, vec3_new(light3d->direction[0], light3d->direction[1], light3d->direction[2]));
 
     for (int i = 0; i < obj3d->mesh.num_triangles; i++)
     {
@@ -76,6 +87,7 @@ void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, li
 
         // Clip the polygon and returns a new polygon with potential new vertices
         clip_polygon(&polygon);
+        float light_intensity_factor = -vec3_dot(normal, light_dir);
 
         // Break the clipped polygon apart back into individual triangles
         triangle_t triangles_after_clipping[MAX_NUM_POLY_TRIANGLES];
@@ -94,7 +106,7 @@ void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, li
             for (int j = 0; j < 3; j++)
             {
                 // Project the current vertex using a perspective projection matrix
-                projected_points[j] = mat4_mul_vec4(camera.proj_matrix, triangle_after_clipping.clipped_points[j]);
+                projected_points[j] = mat4_mul_vec4(proj_matrix, triangle_after_clipping.clipped_points[j]);
 
                 // Perform perspective divide
                 if (projected_points[j].w != 0)
@@ -117,15 +129,8 @@ void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, li
                 projected_points[j].y += (display.height / 2.0);
             }
 
-            // Calculate the shade intensity based on how aliged is the normal with the flipped light direction ray
-            // vec3_t light_dir = vec3_new(light->direction[0], light->direction[1], light->direction[2]);
-
-            vec3_t light_dir = mat4_mul_vec3(view_matrix, vec3_new(light->direction[0], light->direction[1], light->direction[2]));
-            float light_intensity_factor = -vec3_dot(normal, light_dir);
-
             // Calculate the triangle color based on the light angle
             int triangle_color = light_apply_intensity(triangle.color, light_intensity_factor);
-            // triangle_color = light_apply_ambient(*light, triangle_color);
 
             // Create the final projected triangle that will be rendered in screen space
             // Save the projected triangle in the array of triangles to render
@@ -145,6 +150,5 @@ void transform_object(camera_t camera, mat4_t view_matrix, object3d_t *obj3d, li
             }
         }
     }
-
     obj3d->mesh.num_triangles_to_render = num_triangles_to_render;
 }
