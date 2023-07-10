@@ -1,13 +1,14 @@
-import WASM from "./WASM.js";
-import Light3D from "./Light3D.js";
-import Player from "./Player.js";
+import WASM from './WASM.js';
+import Light3D from './Light3D.js';
+import Player from './Player.js';
+import Resources from './Resources.js';
 
 export default class Scene {
   objects_3d = [];
   player;
   light;
   name;
-  constructor(name = "unnamed") {
+  constructor(name = 'unnamed') {
     this.name = name;
     this.light = new Light3D();
 

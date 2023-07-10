@@ -24,9 +24,18 @@
       "name": "triangle",
       "url": "./resources/meshes/triangle.obj",
       "texture": "null"
+    },
+    {
+      "name": "marginal",
+      "url": "./resources/meshes/marginal.obj",
+      "texture": "marginal"
     }
   ],
   "images": [
+    {
+      "name": "marginal",
+      "url": "./resources/images/zx_colors.jpeg"
+    },
     {
       "name": "shotgun",
       "url": "./resources/images/texture_shotgun.png"

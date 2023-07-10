@@ -1,7 +1,7 @@
-import Resources from "./src/Resources.js";
-import Engine from "./src/Engine.js";
-import Scene from "./src/Scene.js";
-import { UI } from "./src/UI.js";
+import Resources from './src/Resources.js';
+import Engine from './src/Engine.js';
+import Scene from './src/Scene.js';
+import { UI } from './src/UI.js';
 
 /**
  * UI STUFF
@@ -46,28 +46,6 @@ const engine = new Engine((e, data) => {
   }
 });
 
-/**
- *
- * SCENE STUFF
- */
-class Demo extends Scene {
-  #obj;
-  #obj2;
-  constructor() {
-    super("Noite da mosca");
-
-    this.#obj = Resources.get_object("portalegre");
-    this.#obj2 = Resources.get_object("road");
-
-    this.add_obj3d(this.#obj);
-    this.add_obj3d(this.#obj2);
-  }
-
-  update(delta) {
-    super.update(delta);
-  }
-}
-
 const check_mobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
@@ -75,10 +53,10 @@ const check_mobile = () => {
 };
 window.onload = async () => {
   if (check_mobile()) {
-    ui.log_error("No mobile support :(");
+    ui.log_error('No mobile support :(');
     return;
   }
-  document.addEventListener("wasm_info", (e) => {
+  document.addEventListener('wasm_info', (e) => {
     ui.update({
       fps: engine.fps,
       verts: e.detail.verts,
@@ -89,3 +67,25 @@ window.onload = async () => {
 
   await engine.start_engine(Demo);
 };
+
+/**
+ *
+ * SCENE STUFF
+ */
+class Demo extends Scene {
+  #obj;
+  #obj2;
+  constructor() {
+    super('marginal');
+
+    this.#obj = Resources.get_object('marginal');
+    // this.#obj2 = Resources.get_object('road');
+
+    this.add_obj3d(this.#obj);
+    // this.add_obj3d(this.#obj2);
+  }
+
+  update(delta) {
+    super.update(delta);
+  }
+}
