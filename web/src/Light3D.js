@@ -1,10 +1,10 @@
-import { vec3 } from "./math.js";
-import WASM from "./WASM.js";
+import { vec3 } from './math.js';
+import WASM from './WASM.js';
 
 export default class Light3D {
   #dir_buffer;
   #dir;
-  constructor(direction = vec3(-1, -1, 1)) {
+  constructor(direction = vec3(-1, -1, -1)) {
     this.#dir = direction;
   }
   initialize(buffers) {

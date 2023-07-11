@@ -2,6 +2,7 @@ import Resources from './src/Resources.js';
 import Engine from './src/Engine.js';
 import Scene from './src/Scene.js';
 import { UI } from './src/UI.js';
+import { vec3 } from './src/math.js';
 
 /**
  * UI STUFF
@@ -74,15 +75,12 @@ window.onload = async () => {
  */
 class Demo extends Scene {
   #obj;
-  #obj2;
   constructor() {
     super('marginal');
 
     this.#obj = Resources.get_object('marginal');
-    // this.#obj2 = Resources.get_object('road');
 
     this.add_obj3d(this.#obj);
-    // this.add_obj3d(this.#obj2);
   }
 
   update(delta) {

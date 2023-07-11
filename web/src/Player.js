@@ -1,18 +1,20 @@
-import Camera3D from "./Camera3D.js";
-import InputController from "./InputController.js";
-import Shotgun from "./Shotgun.js";
-import { vec3, vec3_from_buffer } from "./math.js";
+import Camera3D from './Camera3D.js';
+import Car from './Car.js';
+import InputController from './InputController.js';
+import Shotgun from './Shotgun.js';
+import { vec3, vec3_from_buffer } from './math.js';
 
 export default class Player {
   #pos_b;
   #dir_b;
 
-  #MOVEMENT_SPEED = 0.12;
+  #MOVEMENT_SPEED = 0.02;
   #ROTATE_SPEED = 0.002;
   #UP = glMatrix.vec3.fromValues(0, 1, 0);
   #camera;
 
   #shotgun;
+  #car;
 
   velocity = vec3();
   acceleration = vec3(0, 4.8, 0);
@@ -22,13 +24,27 @@ export default class Player {
 
   constructor() {
     this.#camera = new Camera3D();
-    this.#shotgun = new Shotgun();
+
+    this.#car = new Car();
+    // this.#shotgun = new Shotgun();
   }
 
   initialize(buffers) {
     this.#camera.initialize(buffers);
-    this.position = vec3(-6.1571736335754395, -6.397594928741455, 10.573966026306152);
-    this.direction = vec3(0.549171507358551, 0.5923717617988586, -0.589495062828064);
+
+    this.#car.position = vec3(-5, 0.8, -5);
+    this.position = vec3(5, -0.9, 5);
+    this.direction = vec3(0, 0, -1);
+    // this.position = vec3(
+    //   -6.1571736335754395,
+    //   -6.397594928741455,
+    //   10.573966026306152
+    // );
+    // this.direction = vec3(
+    //   0.549171507358551,
+    //   0.5923717617988586,
+    //   -0.589495062828064
+    // );
   }
 
   update() {
@@ -121,10 +137,20 @@ export default class Player {
   }
 
   #move_up() {
-    glMatrix.vec3.scaleAndAdd(this.#pos_b, this.#pos_b, this.#UP, this.#MOVEMENT_SPEED);
+    glMatrix.vec3.scaleAndAdd(
+      this.#pos_b,
+      this.#pos_b,
+      this.#UP,
+      this.#MOVEMENT_SPEED
+    );
   }
   #move_down() {
-    glMatrix.vec3.scaleAndAdd(this.#pos_b, this.#pos_b, this.#UP, -this.#MOVEMENT_SPEED);
+    glMatrix.vec3.scaleAndAdd(
+      this.#pos_b,
+      this.#pos_b,
+      this.#UP,
+      -this.#MOVEMENT_SPEED
+    );
   }
 
   get position() {
@@ -134,7 +160,15 @@ export default class Player {
     this.#pos_b = glMatrix.vec3.fromValues(pos.x, pos.y, pos.z);
     this.#camera.position = pos;
 
-    this.#shotgun.position = pos;
+    this.#car.position = vec3(
+      -this.#pos_b[0],
+      this.#pos_b[1] * -1 - 0.1,
+      -this.#pos_b[2] + 0.2
+    );
+
+    console.log(this.#car.position);
+
+    // this.#shotgun.position = pos;
   }
 
   get direction() {

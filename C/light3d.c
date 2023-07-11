@@ -22,7 +22,7 @@ int light_apply_intensity(int original_color, float percentage_factor)
                 ((int)((original_color & 0x0000FF00) * percentage_factor) & 0x0000FF00) |
                 ((int)((original_color & 0x000000FF) * percentage_factor) & 0x000000FF);
 
-    return mix_colors(color, 0xff170002);
+    return color;
 }
 
 int light_apply_ambient(light_t light, int color)
