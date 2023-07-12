@@ -31,6 +31,11 @@
       "texture": "marginal"
     },
     {
+      "name": "marginal2",
+      "url": "./resources/meshes/marginal2.obj",
+      "texture": "marginal"
+    },
+    {
       "name": "visa",
       "url": "./resources/meshes/car.obj",
       "texture": "marginal"

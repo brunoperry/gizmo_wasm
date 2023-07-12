@@ -1,12 +1,12 @@
-import Resources from "./Resources.js";
-import Scene from "./Scene.js";
+import Resources from './Resources.js';
+import Scene from './Scene.js';
 
 export default class MarginalScene extends Scene {
   #obj;
   constructor() {
-    super("marginal");
+    super('marginal');
 
-    this.#obj = Resources.get_object("marginal");
+    this.#obj = Resources.get_object('marginal2');
     this.add_obj3d(this.#obj);
   }
 
