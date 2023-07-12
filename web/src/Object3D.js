@@ -36,8 +36,6 @@ export default class Object3D {
   set position(vec) {
     this.#pos = vec;
 
-    
-    if (!this.#p_buffer) return;
     new Float32Array(WASM.mem, this.#p_buffer, 3).set([vec.x, vec.y, vec.z]);
   }
 
@@ -46,7 +44,6 @@ export default class Object3D {
   }
   set rotation(vec) {
     this.#rot = vec;
-    if (!this.#r_buffer) return;
     new Float32Array(WASM.mem, this.#r_buffer, 3).set([vec.x, vec.y, vec.z]);
   }
 

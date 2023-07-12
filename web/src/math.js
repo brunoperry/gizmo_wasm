@@ -13,6 +13,9 @@ export const vec3_sub = (a, b) => {
 export const vec3_mul = (a, b) => {
   return vec3(a.x * b.x, a.y * b.y, a.z * b.z);
 };
+export const vec3_mul_scalar = (vec, scalar) => {
+  return vec3(vec.x * scalar, vec.y * scalar, vec.z * scalar);
+};
 export const vec3_div = (a, b) => {
   return vec3(a.x / b.x, a.y / b.y, a.z / b.z);
 };

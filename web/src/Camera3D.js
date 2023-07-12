@@ -1,6 +1,6 @@
-import Display from './Display.js';
-import WASM from './WASM.js';
-import { vec3 } from './math.js';
+import Display from "./Display.js";
+import WASM from "./WASM.js";
+import { vec3 } from "./math.js";
 export default class Camera3D {
   #cam_buffer;
 
@@ -84,11 +84,7 @@ export default class Camera3D {
   }
   set position(val) {
     this.#pos = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[6], 3).set([
-      val.x,
-      val.y,
-      val.z,
-    ]);
+    new Float32Array(WASM.mem, this.#cam_buffer[6], 3).set([val.x, val.y, val.z]);
   }
 
   get direction() {
@@ -96,11 +92,7 @@ export default class Camera3D {
   }
   set direction(val) {
     this.#dir = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([
-      val.x,
-      val.y,
-      val.z,
-    ]);
+    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([val.x, val.y, val.z]);
   }
 
   get up() {
@@ -108,10 +100,6 @@ export default class Camera3D {
   }
   set up(val) {
     this.#up = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[8], 3).set([
-      val.x,
-      val.y,
-      val.z,
-    ]);
+    new Float32Array(WASM.mem, this.#cam_buffer[8], 3).set([val.x, val.y, val.z]);
   }
 }

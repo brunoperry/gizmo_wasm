@@ -1,8 +1,7 @@
-import Camera3D from './Camera3D.js';
-import Car from './Car.js';
-import InputController from './InputController.js';
-import Shotgun from './Shotgun.js';
-import { vec3, vec3_from_buffer } from './math.js';
+import Camera3D from "./Camera3D.js";
+import Car from "./Car.js";
+import InputController from "./InputController.js";
+import { vec3, vec3_from_buffer } from "./math.js";
 
 export default class Player {
   #pos_b;
@@ -13,7 +12,6 @@ export default class Player {
   #UP = glMatrix.vec3.fromValues(0, 1, 0);
   #camera;
 
-  #shotgun;
   #car;
 
   velocity = vec3();
@@ -26,7 +24,6 @@ export default class Player {
     this.#camera = new Camera3D();
 
     this.#car = new Car();
-    // this.#shotgun = new Shotgun();
   }
 
   initialize(buffers) {
@@ -35,23 +32,22 @@ export default class Player {
     this.#car.position = vec3(-5, 0.8, -5);
     this.position = vec3(5, -0.9, 5);
     this.direction = vec3(0, 0, -1);
-    // this.position = vec3(
-    //   -6.1571736335754395,
-    //   -6.397594928741455,
-    //   10.573966026306152
-    // );
-    // this.direction = vec3(
-    //   0.549171507358551,
-    //   0.5923717617988586,
-    //   -0.589495062828064
-    // );
   }
 
   update() {
     this.#mouseUpdate();
     this.#checkInputs();
 
-    // this.#shotgun.update(this.position);
+    this.#car.update();
+
+    const pos = vec3(
+      this.#car.position.x,
+      this.#car.position.y + 1,
+      this.#car.position.z
+    );
+
+    console.log(pos);
+    // this.#camera.position = pos;
   }
   #mouseUpdate() {
     const rotateY = glMatrix.mat4.create();
@@ -79,22 +75,34 @@ export default class Player {
       this.#is_jumping = true;
     }
     if (InputController.getKey(InputController.Key.W)) {
+      // this.#car.accelerate();
       this.#move_forward();
     } else if (InputController.getKey(InputController.Key.S)) {
+      // this.#car.brake();
       this.#move_backward();
     }
 
     if (InputController.getKey(InputController.Key.A)) {
+      // this.#car.turnLeft();
       this.#strafe_left();
     } else if (InputController.getKey(InputController.Key.D)) {
+      // this.#car.turnRight();
       this.#strafe_right();
     }
 
     if (InputController.getKey(InputController.Key.UP)) {
-      this.#move_up();
+      this.#car.accelerate();
     } else if (InputController.getKey(InputController.Key.DOWN)) {
-      this.#move_down();
+      this.#car.brake();
     }
+
+    this.#car.releaseSteering();
+    if (InputController.getKey(InputController.Key.LEFT)) {
+      this.#car.turnLeft();
+    } else if (InputController.getKey(InputController.Key.RIGHT)) {
+      this.#car.turnRight();
+    }
+
     this.position = vec3_from_buffer(this.#pos_b);
   }
 
@@ -137,20 +145,10 @@ export default class Player {
   }
 
   #move_up() {
-    glMatrix.vec3.scaleAndAdd(
-      this.#pos_b,
-      this.#pos_b,
-      this.#UP,
-      this.#MOVEMENT_SPEED
-    );
+    glMatrix.vec3.scaleAndAdd(this.#pos_b, this.#pos_b, this.#UP, this.#MOVEMENT_SPEED);
   }
   #move_down() {
-    glMatrix.vec3.scaleAndAdd(
-      this.#pos_b,
-      this.#pos_b,
-      this.#UP,
-      -this.#MOVEMENT_SPEED
-    );
+    glMatrix.vec3.scaleAndAdd(this.#pos_b, this.#pos_b, this.#UP, -this.#MOVEMENT_SPEED);
   }
 
   get position() {
@@ -159,16 +157,6 @@ export default class Player {
   set position(pos) {
     this.#pos_b = glMatrix.vec3.fromValues(pos.x, pos.y, pos.z);
     this.#camera.position = pos;
-
-    this.#car.position = vec3(
-      -this.#pos_b[0],
-      this.#pos_b[1] * -1 - 0.1,
-      -this.#pos_b[2] + 0.2
-    );
-
-    console.log(this.#car.position);
-
-    // this.#shotgun.position = pos;
   }
 
   get direction() {

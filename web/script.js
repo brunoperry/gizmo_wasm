@@ -1,8 +1,6 @@
-import Resources from './src/Resources.js';
-import Engine from './src/Engine.js';
-import Scene from './src/Scene.js';
-import { UI } from './src/UI.js';
-import { vec3 } from './src/math.js';
+import Engine from "./src/Engine.js";
+import { UI } from "./src/UI.js";
+import MarginalScene from "./src/MarginalScene.js";
 
 /**
  * UI STUFF
@@ -47,17 +45,12 @@ const engine = new Engine((e, data) => {
   }
 });
 
-const check_mobile = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-};
 window.onload = async () => {
   if (check_mobile()) {
-    ui.log_error('No mobile support :(');
+    ui.log_error("No mobile support :(");
     return;
   }
-  document.addEventListener('wasm_info', (e) => {
+  document.addEventListener("wasm_info", (e) => {
     ui.update({
       fps: engine.fps,
       verts: e.detail.verts,
@@ -66,24 +59,10 @@ window.onload = async () => {
     e.stopPropagation();
   });
 
-  await engine.start_engine(Demo);
+  await engine.start_engine(MarginalScene);
 };
-
-/**
- *
- * SCENE STUFF
- */
-class Demo extends Scene {
-  #obj;
-  constructor() {
-    super('marginal');
-
-    this.#obj = Resources.get_object('marginal');
-
-    this.add_obj3d(this.#obj);
-  }
-
-  update(delta) {
-    super.update(delta);
-  }
-}
+const check_mobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+};

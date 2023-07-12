@@ -1,6 +1,6 @@
-import AudioTrack from './AudioTrack.js';
-import Object3D from './Object3D.js';
-import Texture from './Texture.js';
+import AudioTrack from "./AudioTrack.js";
+import Object3D from "./Object3D.js";
+import Texture from "./Texture.js";
 
 export default class Resources {
   static objects = [];
@@ -10,28 +10,26 @@ export default class Resources {
   static main_audio = null;
 
   static async initialize(listener, state) {
-    if (listener) listener(state, 'loading data.json');
-    const raw_data = await Resources.#load_json_data('resources/data.json');
+    if (listener) listener(state, "loading data.json");
+    const raw_data = await Resources.#load_json_data("resources/data.json");
 
     for (let i = 0; i < raw_data.images.length; i++) {
-      if (listener)
-        listener(state, `loading image: ${raw_data.images[i].name}`);
+      if (listener) listener(state, `loading image: ${raw_data.images[i].name}`);
       const image_data = await Resources.#load_image_file(raw_data.images[i]);
       Resources.images.push(image_data);
     }
 
     for (let i = 0; i < raw_data.meshes.length; i++) {
-      if (listener)
-        listener(state, `loading object: ${raw_data.meshes[i].name}`);
+      if (listener) listener(state, `loading object: ${raw_data.meshes[i].name}`);
 
-      const split_data = raw_data.meshes[i].url.split('.');
+      const split_data = raw_data.meshes[i].url.split(".");
       const obj_type = split_data[split_data.length - 1];
       let obj_data;
       switch (obj_type) {
-        case 'obj':
+        case "obj":
           obj_data = await Resources.#load_obj_file(raw_data.meshes[i].url);
           break;
-        case 'fbx':
+        case "fbx":
           obj_data = await Resources.#load_fbx_file(raw_data.meshes[i].url);
           break;
       }
@@ -40,15 +38,12 @@ export default class Resources {
     }
 
     for (let i = 0; i < raw_data.audios.length; i++) {
-      if (listener)
-        listener(state, `loading audio: ${raw_data.audios[i].name}`);
-      const audio_data = await Resources.#load_audio_file(
-        raw_data.audios[i].url
-      );
+      if (listener) listener(state, `loading audio: ${raw_data.audios[i].name}`);
+      const audio_data = await Resources.#load_audio_file(raw_data.audios[i].url);
 
       const audio = new AudioTrack(audio_data, raw_data.audios[i].name);
       if (!raw_data.audios[i].name) {
-        audio.name = 'main';
+        audio.name = "main";
         Resources.main_audio = audio;
         continue;
       }
@@ -57,11 +52,6 @@ export default class Resources {
   }
 
   static get_object(obj_name) {
-    // console.log(obj_name);
-
-    Resources.objects.forEach((obj) => {
-      console.log(obj.name);
-    });
     return Resources.objects.find((obj) => obj.name === obj_name);
   }
   static get_image(image_name) {
@@ -80,29 +70,29 @@ export default class Resources {
 
   static async #load_fbx_file(data_path) {
     const parse_block = (from, data) => {
-      let data_block = '';
+      let data_block = "";
       let start_parse = false;
       let num_brackets = 0;
       for (let i = from; i < data.length; i++) {
         if (start_parse && num_brackets === 0) break;
         const char = data[i];
         data_block += char;
-        if (char === '{') {
+        if (char === "{") {
           if (!start_parse) start_parse = true;
           num_brackets++;
         }
-        if (char === '}') {
+        if (char === "}") {
           num_brackets--;
         }
       }
-      const tokens = data_block.split('\n');
-      const pop = tokens[0].split(' ');
+      const tokens = data_block.split("\n");
+      const pop = tokens[0].split(" ");
       tokens[0] = `${pop[0]} ${pop[pop.length - 1]}`;
       let out_data;
       for (let i = 0; i < tokens.length; i++) {
         const tok = tokens[i];
-        if (tok.includes('a:')) {
-          out_data = tok.split(' ')[1].split(',');
+        if (tok.includes("a:")) {
+          out_data = tok.split(" ")[1].split(",");
           break;
         }
       }
@@ -116,14 +106,14 @@ export default class Resources {
     const clean_data = Resources.#cleanString(data);
 
     let faces = [];
-    const vertices = parse_block(clean_data.search('Vertices:'), clean_data);
+    const vertices = parse_block(clean_data.search("Vertices:"), clean_data);
     const vertices_index = parse_block(
-      clean_data.search('PolygonVertexIndex:'),
+      clean_data.search("PolygonVertexIndex:"),
       clean_data
     );
 
-    const uvs_index = parse_block(clean_data.search('UVIndex:'), clean_data);
-    const uvs = parse_block(clean_data.search('UV:'), clean_data);
+    const uvs_index = parse_block(clean_data.search("UVIndex:"), clean_data);
+    const uvs = parse_block(clean_data.search("UV:"), clean_data);
 
     const normals = [];
     for (let i = 0; i < vertices_index.length; i++) {
@@ -138,17 +128,14 @@ export default class Resources {
       faces.push(1);
     }
 
-    const name_index = clean_data.search('Model: ');
-    let name_data = '';
+    const name_index = clean_data.search("Model: ");
+    let name_data = "";
     for (let i = name_index; i < clean_data.length; i++) {
       const char = clean_data[i];
-      if (char === '\n') break;
+      if (char === "\n") break;
       name_data += char;
     }
-    const name = name_data
-      .split(', ')[1]
-      .replace(/['"]/g, '')
-      .replace('Model::', '');
+    const name = name_data.split(", ")[1].replace(/['"]/g, "").replace("Model::", "");
 
     const object3d = Resources.#make_fan_strip({
       vertices: vertices,
@@ -162,38 +149,38 @@ export default class Resources {
   }
   static async #load_obj_file(data_path) {
     const data = await Resources.#load_text_data(data_path);
-    const lines = data.split('\n');
+    const lines = data.split("\n");
     let tokens;
 
     let vertices = [];
     let uvs = [];
     let normals = [];
     let faces = [];
-    let name = 'no_name';
+    let name = "no_name";
     for (let i = 0; i < lines.length; i++) {
-      tokens = lines[i].split(' ');
+      tokens = lines[i].split(" ");
       tokens = Resources.#removeEmptyStrings(tokens);
 
       switch (tokens[0]) {
-        case 'v':
+        case "v":
           vertices.push(parseFloat(tokens[1]));
           vertices.push(parseFloat(tokens[2]));
           vertices.push(parseFloat(tokens[3]));
           break;
-        case 'vt':
+        case "vt":
           uvs.push(parseFloat(tokens[1]));
           uvs.push(parseFloat(tokens[2]));
           break;
-        case 'vn':
+        case "vn":
           normals.push(parseFloat(tokens[1]));
           normals.push(parseFloat(tokens[2]));
           normals.push(parseFloat(tokens[3]));
           break;
-        case 'f':
+        case "f":
           for (let j = 0; j < tokens.length - 3; j++) {
-            const tk1 = tokens[1].split('/');
-            const tk2 = tokens[2].split('/');
-            const tk3 = tokens[3].split('/');
+            const tk1 = tokens[1].split("/");
+            const tk2 = tokens[2].split("/");
+            const tk3 = tokens[3].split("/");
 
             faces.push(parseInt(tk1[0] - 1));
             faces.push(parseInt(tk1[1] - 1));
@@ -208,7 +195,7 @@ export default class Resources {
             faces.push(parseInt(tk3[2] - 1));
           }
           break;
-        case 'g':
+        case "g":
           name = tokens[1];
           break;
       }
@@ -228,10 +215,10 @@ export default class Resources {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0);
 
         if (!as_image) {
@@ -314,12 +301,12 @@ export default class Resources {
   static #removeEmptyStrings(data) {
     let dataOut = [];
     for (let i = 0; i < data.length; i++) {
-      data[i] = data[i].replace(/\t/g, '');
-      if (data[i] !== '') dataOut.push(data[i]);
+      data[i] = data[i].replace(/\t/g, "");
+      if (data[i] !== "") dataOut.push(data[i]);
     }
     return dataOut;
   }
   static #cleanString(data) {
-    return data.replace(/\t/g, '');
+    return data.replace(/\t/g, "");
   }
 }
