@@ -57,7 +57,6 @@ export default class Engine {
     this.#listener(Engine.States.PLAYING);
   }
   playOnce() {
-    console.log("lwkjd");
     this.#listener(Engine.States.PLAYING);
     this.#loop(true);
     this.#loopID = null;

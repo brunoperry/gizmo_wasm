@@ -1,9 +1,9 @@
 {
   "meshes": [
     {
-      "name": "shotgun",
-      "url": "./resources/meshes/shotgun.obj",
-      "texture": "shotgun"
+      "name": "surfer",
+      "url": "./resources/meshes/surfer.obj",
+      "texture": "surfer"
     },
     {
       "name": "portalegre",
@@ -42,6 +42,10 @@
     }
   ],
   "images": [
+    {
+      "name": "surfer",
+      "url": "./resources/images/texture_surfer.png"
+    },
     {
       "name": "marginal",
       "url": "./resources/images/zx_colors.jpeg"

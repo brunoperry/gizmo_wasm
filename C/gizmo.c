@@ -115,7 +115,7 @@ EXPORT void light_done()
 EXPORT void update()
 {
     clear_z_buffer();
-    clear_color_buffer(0xFFFFFF00);
+    clear_color_buffer(0x22FF0000);
     mat4_t view_matrix = cam_view();
     mat4_t proj_matrix = camera3d->proj_matrix;
     vec3_t light_dir = mat4_mul_vec3(view_matrix, vec3_new(light3d->direction[0], light3d->direction[1], light3d->direction[2]));

@@ -1,6 +1,6 @@
 import Engine from "./src/Engine.js";
 import { UI } from "./src/UI.js";
-import MarginalScene from "./src/MarginalScene.js";
+import TestScene from "./src/TestScene.js";
 
 /**
  * UI STUFF
@@ -59,7 +59,7 @@ window.onload = async () => {
     e.stopPropagation();
   });
 
-  await engine.start_engine(MarginalScene);
+  await engine.start_engine(TestScene);
 };
 const check_mobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(

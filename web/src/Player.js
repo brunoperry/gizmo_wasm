@@ -22,32 +22,18 @@ export default class Player {
 
   constructor() {
     this.#camera = new Camera3D();
-
-    this.#car = new Car();
   }
 
   initialize(buffers) {
     this.#camera.initialize(buffers);
 
-    this.#car.position = vec3(-5, 0.8, -5);
-    this.position = vec3(5, -0.9, 5);
-    this.direction = vec3(0, 0, -1);
+    this.position = vec3(-0.64, -1.88, -8.21);
+    this.direction = vec3(0.14, 0.35, 0.98);
   }
 
   update() {
     this.#mouseUpdate();
     this.#checkInputs();
-
-    this.#car.update();
-
-    const pos = vec3(
-      this.#car.position.x,
-      this.#car.position.y + 1,
-      this.#car.position.z
-    );
-
-    console.log(pos);
-    // this.#camera.position = pos;
   }
   #mouseUpdate() {
     const rotateY = glMatrix.mat4.create();
@@ -91,16 +77,16 @@ export default class Player {
     }
 
     if (InputController.getKey(InputController.Key.UP)) {
-      this.#car.accelerate();
+      // this.#car.accelerate();
     } else if (InputController.getKey(InputController.Key.DOWN)) {
-      this.#car.brake();
+      // this.#car.brake();
     }
 
-    this.#car.releaseSteering();
+    // this.#car.releaseSteering();
     if (InputController.getKey(InputController.Key.LEFT)) {
-      this.#car.turnLeft();
+      // this.#car.turnLeft();
     } else if (InputController.getKey(InputController.Key.RIGHT)) {
-      this.#car.turnRight();
+      // this.#car.turnRight();
     }
 
     this.position = vec3_from_buffer(this.#pos_b);
