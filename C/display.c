@@ -392,7 +392,8 @@ void draw_line(int x0, int y0, int x1, int y1, int color)
 void apply_fisheye()
 {
     int centerX = display.half_width; // X coordinate of the fisheye center
-    float distortion = 10.5;
+    int centerY = display.half_height; // X coordinate of the fisheye center
+    float strength = 0.005;
     int width = display.width;
     int height = display.height;
 
@@ -403,24 +404,74 @@ void apply_fisheye()
         {
             // Calculate the distance from the center
             int dx = x - centerX;
+            int dy = y - centerX;
+            float distance = sqrt(dx * dx + dy * dy);
 
-            // Calculate the distortion factor
-            float distortionFactor = distortion * dx * dx / (width * width);
-
-            // Calculate the new y-coordinate
-            int newY = y + distortionFactor;
-
-            // Check if the new y-coordinate is within the image bounds
-            if (newY >= 0 && newY < height)
+            // Apply the fisheye distortion
+            if (distance > 0)
             {
-                // Interpolate the color value from the original image buffer
-                unsigned int color = display.color_buffer[newY * width + x];
+                float r = g_aTan2(dy, dx); // Angle from center
+                float distortion = strength * distance;
+                int newX = centerX + distortion * g_cos(r);
+                int newY = centerY + distortion * g_sin(r);
 
-                // Assign the interpolated color to the pixel
-                display.color_buffer[y * width + x] = color;
+                // Check if the new coordinates are within the image bounds
+                if (newX >= 0 && newX < width && newY >= 0 && newY < height)
+                {
+                    // Interpolate the color value from the original image buffer
+                    unsigned int color = display.color_buffer[newY * width + newX];
+                    // Assign the interpolated color to the current pixel
+                    display.color_buffer[y * width + x] = color;
+                }
             }
         }
     }
+}
+
+
+
+
+void apply_barrel_distortion() {
+
+    int CANVAS_WIDTH = 320;
+    int CANVAS_HEIGHT =  240;
+
+    // Define the barrel distortion parameters
+    float K1 = 0.00005f;  // Adjust this value for horizontal distortion
+    float K2 = 0.00005f; // Adjust this value for vertical distortion
+    float CENTER_X = (CANVAS_WIDTH / 2);
+    float CENTER_Y = (CANVAS_HEIGHT / 2);
+
+    for (int y = 0; y < CANVAS_HEIGHT; y++) {
+        for (int x = 0; x < CANVAS_WIDTH; x++) {
+            // Calculate the distance from the center
+            double dx = x - CENTER_X;
+            double dy = y - CENTER_Y;
+            double r = sqrt(dx * dx + dy * dy);
+            
+            // Apply the barrel distortion formula
+            double r2 = r * r;
+            double scale = 1.0 + K1 * r2 + K2 * r2 * r2;
+            
+            // Map the distorted coordinates back to the original image
+            int srcX = (int)((dx / scale) + CENTER_X);
+            int srcY = (int)((dy / scale) + CENTER_Y);
+            
+            // Ensure the mapped coordinates are within bounds
+            if (srcX >= 0 && srcX < CANVAS_WIDTH && srcY >= 0 && srcY < CANVAS_HEIGHT) {
+                // Copy the pixel from the original image to the canvas
+                int destIndex = (y * CANVAS_WIDTH + x) * 4; // Assuming BGRA image
+                int srcIndex = (srcY * CANVAS_WIDTH + srcX) * 4; // Assuming BGRA image
+                
+                // Copy the BGRA values
+                for (int channel = 0; channel < 4; channel++) {
+                    display.color_buffer[destIndex + channel] = display.color_buffer[srcIndex + channel];
+                }
+            }
+        }
+    }
+
+    int_log(display.color_buffer[100]);
 }
 
 void clear_color_buffer(int color)

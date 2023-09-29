@@ -17,6 +17,9 @@ const ui = new UI((e) => {
     case UI.Actions.RENDER_MODE:
       engine.render_mode = e.mode;
       break;
+      case UI.Actions.FILTER:
+        engine.applyFilter(e.filter);
+        break;
   }
 });
 /**

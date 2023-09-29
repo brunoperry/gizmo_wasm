@@ -3,6 +3,7 @@
 
 #include "object.h"
 #include "light3d.h"
+#include <math.h>
 #include <stdlib.h>
 
 typedef struct
@@ -55,6 +56,7 @@ void draw_pixel(int x, int y, int color);
 void draw_line(int x0, int y0, int x1, int y1, int color);
 void clear_color_buffer(int color);
 void apply_fisheye();
+void apply_barrel_distortion();
 void clear_z_buffer(void);
 
 unsigned int *set_render_mode();

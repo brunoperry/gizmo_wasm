@@ -93,6 +93,11 @@ export default class Engine {
     if (!once) this.#loopID = requestAnimationFrame(() => this.#loop());
   }
 
+  applyFilter(filter) {
+    WASM.apply_filter(filter);
+    this.#display.update();
+  }
+
   get render_mode() {
     return this.#display.render_mode;
   }

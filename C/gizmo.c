@@ -123,13 +123,19 @@ EXPORT void update()
     int total_tris = 0;
     for (int i = 0; i < total_objs3d; i++)
     {
-        // render_object(objs3d[i], view_matrix);
         transform_object(view_matrix, proj_matrix, objs3d[i], display_size, light_dir);
         total_tris += objs3d[i]->mesh.num_triangles_to_render;
         draw(objs3d[i]);
     }
 
-    // apply_fisheye();
-
+    apply_fisheye();
     info_log(total_tris, total_tris * 3);
+}
+
+EXPORT void apply_filter(int filter) {
+    if(filter == 0) {
+        apply_barrel_distortion();
+    } else if(filter == 1) {
+        apply_fisheye();
+    }
 }

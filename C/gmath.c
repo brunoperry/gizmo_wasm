@@ -174,6 +174,7 @@ void vec4_log(vec4_t vec)
 {
     wasm_vec4_log(vec.x, vec.y, vec.z, vec.w);
 }
+
 //////////////////////////////////////
 // Matrix Implementations
 //////////////////////////////////////
@@ -474,6 +475,7 @@ void mat4_log(mat4_t mat)
         mat.m[2][0], mat.m[2][1], mat.m[2][2], mat.m[2][3],
         mat.m[3][0], mat.m[3][1], mat.m[3][2], mat.m[3][3]);
 }
+
 //////////////////////////////////////
 // Vector conversion funcs
 //////////////////////////////////////
@@ -496,6 +498,7 @@ vec2_t vec2_from_vec4(vec4_t v)
 //////////////////////////////////////
 // Math
 //////////////////////////////////////
+
 float g_aTan2(float y, float x)
 {
     float coeff_1 = M_PI / 4;

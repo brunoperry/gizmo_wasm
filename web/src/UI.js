@@ -5,6 +5,7 @@ export class UI {
     PLAY_PAUSE: "playpause",
     NEXT: "next",
     RENDER_MODE: "rendermode",
+    FILTER: "filter"
   };
   #listener = null;
 
@@ -105,15 +106,19 @@ export class UI {
     };
     this.#logs = document.querySelector("#logs");
 
-    this.#crosshair = document.querySelector("#cross");
-    const canvas_box = document.querySelector("canvas").getBoundingClientRect();
-    const cross_box = this.#crosshair.getBoundingClientRect();
-    const centerX = canvas_box.width / 2 - cross_box.width / 2;
-    const centerY = canvas_box.y + canvas_box.height / 2 - cross_box.height / 2;
-    this.#crosshair.style.left = `${centerX}px`;
-    this.#crosshair.style.top = `${centerY}px`;
-    this.#crosshair.style.scale = "0";
-    this.#crosshair.style.opacity = "1";
+    const filters = document.querySelector("#filters");
+    filters.querySelector("#barrel").onclick = () => {
+      this.#listener({
+        action: UI.Actions.FILTER,
+        filter:"barrel",
+      });
+    }
+    filters.querySelector("#fisheye").onclick = () => {
+      this.#listener({
+        action: UI.Actions.FILTER,
+        filter:"fisheye",
+      });
+    }
   }
 
   log_console(value, color = "var(--color-d)") {
@@ -158,14 +163,11 @@ export class UI {
     pause_icon.style.display = "none";
     if (is_playing) {
       pause_icon.style.display = "initial";
-      // this.#crosshair.style.visibility = "initial";
       this.#play_pause_btn.className = "toggled-red";
-      // this.#crosshair.style.scale = "1";
       this.log_console("Playing... use mouse and WASD, (esc) to exit.");
     } else {
       play_icon.style.display = "initial";
       this.#play_pause_btn.className = "";
-      this.#crosshair.style.scale = "0";
       this.log_console("Stopped.");
     }
   }

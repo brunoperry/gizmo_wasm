@@ -9,7 +9,7 @@
   --yellow: #f3a200;
   --overlay: #000000d5;
 
-  --gap: 20px;
+  --gap: 10px;
 
   --speed: 0.5s;
 }
@@ -229,6 +229,10 @@ button:active {
   flex: 1;
   font-size: 13px;
   font-family: "Lucida Console", "Courier New", monospace;
+}
+
+#filters button {
+  color: whitesmoke;
 }
 
 button.toggled {

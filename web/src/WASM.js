@@ -57,18 +57,6 @@ export default class WASM {
   static set_render_mode_buffer() {
     return WASM.#c_module.set_render_mode_buffer();
   }
-
-  static set_weapon_buffer(weapon) {
-    const weapon_buffer = WASM.#c_module.set_weapon_buffer();
-    const buffers = new Int32Array(WASM.mem, weapon_buffer, 9);
-    camera.initialize(buffers);
-    WASM.#c_module.cam_done();
-  }
-
-  static set_cam_buffer(camera) {
-    const cam_buffer = WASM.#c_module.set_cam_buffer();
-    camera.initialize(cam_buffer);
-  }
   static set_camera_buffer(camera) {
     const cam_buffer = WASM.#c_module.set_camera_buffer();
     const buffers = new Int32Array(WASM.mem, cam_buffer, 9);
@@ -92,6 +80,17 @@ export default class WASM {
     const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
     obj3D.initialize(buffers);
     WASM.#c_module.obj_done();
+  }
+  
+  static apply_filter(filter) {
+    switch(filter) {
+      case "barrel":
+        WASM.#c_module.apply_filter(0);
+      break;
+      case "fisheye":
+        WASM.#c_module.apply_filter(1);
+        break;
+    }
   }
 
   static get mem() {
