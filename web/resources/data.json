@@ -6,39 +6,14 @@
       "texture": "surfer"
     },
     {
-      "name": "portalegre",
-      "url": "./resources/meshes/portalegre.obj",
-      "texture": "portalegre"
-    },
-    {
-      "name": "floor",
-      "url": "./resources/meshes/floor.obj",
-      "texture": "null"
-    },
-    {
-      "name": "road",
-      "url": "./resources/meshes/road.obj",
-      "texture": "road"
+      "name": "bowl",
+      "url": "./resources/meshes/bowl.obj",
+      "texture": "bowl"
     },
     {
       "name": "triangle",
       "url": "./resources/meshes/triangle.obj",
       "texture": "null"
-    },
-    {
-      "name": "marginal",
-      "url": "./resources/meshes/marginal.obj",
-      "texture": "marginal"
-    },
-    {
-      "name": "marginal2",
-      "url": "./resources/meshes/marginal2.obj",
-      "texture": "marginal"
-    },
-    {
-      "name": "visa",
-      "url": "./resources/meshes/car.obj",
-      "texture": "marginal"
     }
   ],
   "images": [
@@ -47,20 +22,8 @@
       "url": "./resources/images/texture_surfer.png"
     },
     {
-      "name": "marginal",
-      "url": "./resources/images/zx_colors.jpeg"
-    },
-    {
-      "name": "shotgun",
-      "url": "./resources/images/texture_shotgun.png"
-    },
-    {
-      "name": "portalegre",
-      "url": "./resources/images/texture_portalegre.png"
-    },
-    {
-      "name": "road",
-      "url": "./resources/images/texture_road.png"
+      "name": "bowl",
+      "url": "./resources/images/sphere.png"
     },
     {
       "name": "null",

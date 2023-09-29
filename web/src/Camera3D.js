@@ -1,7 +1,11 @@
 import Display from "./Display.js";
 import WASM from "./WASM.js";
-import { vec3 } from "./math.js";
+import { mat4_from_rotation, vec3, vec3_cross, vec3_scale_and_add, vec3_transform_mat4} from "./math.js";
+import InputController from "./InputController.js";
 export default class Camera3D {
+  #MOVEMENT_SPEED = 0.1;
+  #ROTATE_SPEED = 0.002;
+  #UP = vec3(0, 1, 0);
   #cam_buffer;
 
   #pos;
@@ -26,11 +30,77 @@ export default class Camera3D {
     this.z_near = 0.01;
     this.z_far = 100;
 
+    this.#pos = vec3(3.193973742110784, 4.434063983181778, -22.34138778876013 );
+
     this.position = this.#pos;
     this.direction = this.#dir;
 
     this.up = this.#up;
   }
+
+  update(delta) {
+    this.#mouseUpdate();
+    this.#checkInputs();
+
+  }
+  #mouseUpdate() {
+    const rotateY = mat4_from_rotation(-InputController.MouseDX * this.#ROTATE_SPEED, this.#UP);
+
+    const toRotateAround = vec3_cross(this.#dir, this.#UP);
+    const rotateX = mat4_from_rotation(InputController.MouseDY * this.#ROTATE_SPEED, toRotateAround);
+    
+
+    this.#dir = vec3_transform_mat4(this.#dir, rotateX);
+    this.#dir = vec3_transform_mat4(this.#dir, rotateY);
+    
+    this.direction = vec3(this.#dir.x, this.#dir.y, this.#dir.z);
+  }
+  #checkInputs() {
+    
+    if (InputController.getKey(InputController.Key.W)) {
+      this.#move_forward();
+    } else if (InputController.getKey(InputController.Key.S)) {
+      this.#move_backward();
+    }
+
+    if (InputController.getKey(InputController.Key.A)) {
+      this.#strafe_left();
+    } else if (InputController.getKey(InputController.Key.D)) {
+      this.#strafe_right();
+    }
+  }
+
+  #move_forward() {
+
+    this.position = vec3_scale_and_add(this.#pos, this.#dir, this.#MOVEMENT_SPEED);
+  }
+  #move_backward() {
+    this.position = vec3_scale_and_add(this.#pos, this.#dir, -this.#MOVEMENT_SPEED);
+  }
+  #strafe_left() {
+    const strafeDirection = vec3_cross(this.#dir, this.#UP);
+    this.position = vec3_scale_and_add(this.#pos, strafeDirection, -this.#MOVEMENT_SPEED);
+  }
+  #strafe_right() {
+    const strafeDirection = vec3_cross(this.#dir, this.#UP);
+    this.position = vec3_scale_and_add(this.#pos, strafeDirection, this.#MOVEMENT_SPEED);
+  }
+
+  get position() {
+    return this.#pos;
+  }
+  set position(val) {
+    this.#pos = val;
+    new Float32Array(WASM.mem, this.#cam_buffer[6], 3).set([val.x, val.y, val.z]);
+  }
+  get direction() {
+    return this.#dir;
+  }
+  set direction(val) {
+    this.#dir = val;
+    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([val.x, val.y, val.z]);
+  }
+
   get aspect_x() {
     return new Float32Array(WASM.mem, this.#cam_buffer[0], 1)[0];
   }
@@ -43,7 +113,6 @@ export default class Camera3D {
   set aspect_y(val) {
     new Float32Array(WASM.mem, this.#cam_buffer[1], 1).set([val]);
   }
-
   set fov(val) {
     this.fov_x = val;
     this.fov_y = val;
@@ -78,23 +147,6 @@ export default class Camera3D {
   set z_far(val) {
     new Float32Array(WASM.mem, this.#cam_buffer[5], 1).set([val]);
   }
-
-  get position() {
-    return this.#pos;
-  }
-  set position(val) {
-    this.#pos = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[6], 3).set([val.x, val.y, val.z]);
-  }
-
-  get direction() {
-    return this.#dir;
-  }
-  set direction(val) {
-    this.#dir = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([val.x, val.y, val.z]);
-  }
-
   get up() {
     return this.#up;
   }

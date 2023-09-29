@@ -7,7 +7,7 @@ export default class TestScene extends Scene {
   constructor() {
     super('test');
 
-    this.#obj = Resources.get_object('surfer');
+    this.#obj = Resources.get_object('bowl');
 
     this.add_obj3d(this.#obj);
   }
