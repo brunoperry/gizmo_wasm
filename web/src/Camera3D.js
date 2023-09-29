@@ -30,7 +30,8 @@ export default class Camera3D {
     this.z_near = 0.01;
     this.z_far = 100;
 
-    this.#pos = vec3(3.193973742110784, 4.434063983181778, -22.34138778876013 );
+    // this.#pos = vec3(-7.482987053782568, -0.3860208457046338, -4.445848639506135 );
+    // this.#dir = vec3(0.8430399624045004,  0.17509277691431607, 0.5085529876634602);
 
     this.position = this.#pos;
     this.direction = this.#dir;
@@ -41,7 +42,6 @@ export default class Camera3D {
   update(delta) {
     this.#mouseUpdate();
     this.#checkInputs();
-
   }
   #mouseUpdate() {
     const rotateY = mat4_from_rotation(-InputController.MouseDX * this.#ROTATE_SPEED, this.#UP);
