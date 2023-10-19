@@ -1,9 +1,9 @@
 #include "display.h"
 
-inline unsigned int *display_create(int width, int height)
+inline uint32_t *display_create(int width, int height)
 {
     int length = width * height;
-    unsigned int *color_buffer = malloc(length * sizeof(int));
+    uint32_t *color_buffer = malloc(length * sizeof(uint32_t));
     float *z_buffer = (float *)malloc(length * sizeof(float));
 
     display.width = width;
@@ -342,11 +342,33 @@ inline void draw_triangle_pixel(int x, int y, int color, vec4_t point_a, vec4_t 
         display.z_buffer[(display.width * y) + x] = interpolated_reciprocal_w;
     }
 }
-inline void draw_pixel(int x, int y, int color)
+inline void draw_pixel(int x, int y, uint32_t color)
 {
     if (x >= 0 && x < display.width && y >= 0 && y < display.height)
     {
-        display.color_buffer[(display.width * y) + x] = color;
+        // display.color_buffer[(display.width * y) + x] = color;
+
+        uint32_t *target_pixel = &display.color_buffer[(320 * y) + x];
+
+        // Extract the alpha, red, green, and blue components of the colors
+        uint8_t alpha_new = (color >> 24) & 0xFF;
+        uint8_t red_new = (color >> 16) & 0xFF;
+        uint8_t green_new = (color >> 8) & 0xFF;
+        uint8_t blue_new = color & 0xFF;
+
+        uint8_t alpha_old = (*target_pixel >> 24) & 0xFF;
+        uint8_t red_old = (*target_pixel >> 16) & 0xFF;
+        uint8_t green_old = (*target_pixel >> 8) & 0xFF;
+        uint8_t blue_old = *target_pixel & 0xFF;
+
+        // Calculate the new color components with alpha blending
+        uint8_t alpha_result = alpha_new + (alpha_old * (255 - alpha_new) / 255);
+        uint8_t red_result = (red_new * alpha_new / 255) + (red_old * (255 - alpha_new) / 255);
+        uint8_t green_result = (green_new * alpha_new / 255) + (green_old * (255 - alpha_new) / 255);
+        uint8_t blue_result = (blue_new * alpha_new / 255) + (blue_old * (255 - alpha_new) / 255);
+
+        // Combine the components into a new color and update the color buffer
+        *target_pixel = (alpha_result << 24) | (red_result << 16) | (green_result << 8) | blue_result;
     }
 }
 inline void draw_line(int x0, int y0, int x1, int y1, int color)
