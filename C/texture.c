@@ -1,6 +1,6 @@
 #include "texture.h"
 
-double get_depth(vec3_t point, vec3_t light_position, vec3_t light_direction)
+inline double get_depth(vec3_t point, vec3_t light_position, vec3_t light_direction)
 {
     // Calculate the projection of the point onto the light's view plane
     vec3_t light_to_point = {point.x - light_position.x, point.y - light_position.y, point.z - light_position.z};

@@ -1,8 +1,7 @@
 #ifndef OBJECT3D_H
 #define OBJECT3D_H
 
-#include "gmath.h"
-#include "walloc.h"
+#include "stdlib.h"
 #include "texture.h"
 #include "mesh.h"
 

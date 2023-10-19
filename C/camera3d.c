@@ -1,7 +1,6 @@
 #include "camera3d.h"
-#include "light3d.h"
 
-camera_t *camera_build(camera_t *cam_to_build)
+inline camera_t *camera_build(camera_t *cam_to_build)
 {
     camera3d = (camera_t *)malloc(sizeof(camera_t));
     camera3d->aspect_x = cam_to_build->aspect_x;
@@ -20,7 +19,7 @@ camera_t *camera_build(camera_t *cam_to_build)
     return camera3d;
 }
 
-mat4_t cam_view()
+inline mat4_t cam_view()
 {
     vec3_t dir = vec3_new(camera3d->direction[0],
                           camera3d->direction[1],
@@ -41,15 +40,12 @@ mat4_t cam_view()
     return mat4_mul_mat4(look_at, view_matrix);
 }
 
-// Clipping
-#define NUM_PLANES 6
-
-void init_frustum_planes()
+inline void init_frustum_planes()
 {
-    float cos_half_fov_x = g_cos(camera3d->fov_x[0] / (float)2.0);
-    float sin_half_fov_x = g_sin(camera3d->fov_x[0] / (float)2.0);
-    float cos_half_fov_y = g_cos(camera3d->fov_y[0] / (float)2.0);
-    float sin_half_fov_y = g_sin(camera3d->fov_y[0] / (float)2.0);
+    float cos_half_fov_x = cos(camera3d->fov_x[0] / (float)2.0);
+    float sin_half_fov_x = sin(camera3d->fov_x[0] / (float)2.0);
+    float cos_half_fov_y = cos(camera3d->fov_y[0] / (float)2.0);
+    float sin_half_fov_y = sin(camera3d->fov_y[0] / (float)2.0);
 
     camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].point = vec3_new(0, 0, 0);
     camera3d->frustum_planes[LEFT_FRUSTUM_PLANE].normal.x = cos_half_fov_x;
@@ -81,7 +77,7 @@ void init_frustum_planes()
     camera3d->frustum_planes[FAR_FRUSTUM_PLANE].normal.y = 0;
     camera3d->frustum_planes[FAR_FRUSTUM_PLANE].normal.z = -1;
 }
-polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle)
+inline polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle)
 {
     return (polygon_t){
         .vertices = {v0, v1, v2},
@@ -89,7 +85,7 @@ polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t tria
         .num_vertices = 3};
     // return polygon;
 }
-void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles)
+inline void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles)
 {
     for (int i = 0; i < polygon->num_vertices - 2; i++)
     {
@@ -107,7 +103,7 @@ void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num
     }
     *num_triangles = polygon->num_vertices - 2;
 }
-void clip_polygon_against_plane(polygon_t *polygon, int plane)
+inline void clip_polygon_against_plane(polygon_t *polygon, int plane)
 {
     vec3_t plane_point = camera3d->frustum_planes[plane].point;
     vec3_t plane_normal = camera3d->frustum_planes[plane].normal;
@@ -182,7 +178,7 @@ void clip_polygon_against_plane(polygon_t *polygon, int plane)
     }
     polygon->num_vertices = num_inside_vertices;
 }
-void clip_polygon(polygon_t *polygon)
+inline void clip_polygon(polygon_t *polygon)
 {
     clip_polygon_against_plane(polygon, LEFT_FRUSTUM_PLANE);
     clip_polygon_against_plane(polygon, RIGHT_FRUSTUM_PLANE);

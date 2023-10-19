@@ -1,7 +1,6 @@
 #include "display.h"
-#include <stdint.h>
 
-unsigned int *display_create(int width, int height)
+inline unsigned int *display_create(int width, int height)
 {
     int length = width * height;
     unsigned int *color_buffer = malloc(length * sizeof(int));
@@ -18,8 +17,7 @@ unsigned int *display_create(int width, int height)
 
     return color_buffer;
 }
-
-void draw(object3d_t *obj3d)
+inline void draw(object3d_t *obj3d)
 {
     if (display.render_mode[0] == 0)
     {
@@ -59,18 +57,13 @@ void draw(object3d_t *obj3d)
         }
     }
 }
-
-void draw_wired_triangle(int x0, int y0, int x1, int y1, int x2, int y2, int color)
+inline void draw_wired_triangle(int x0, int y0, int x1, int y1, int x2, int y2, int color)
 {
     draw_line(x0, y0, x1, y1, color);
     draw_line(x1, y1, x2, y2, color);
     draw_line(x2, y2, x0, y0, color);
 }
-void draw_textured_triangle(
-    int x0, int y0, float z0, float w0, float u0, float v0,
-    int x1, int y1, float z1, float w1, float u1, float v1,
-    int x2, int y2, float z2, float w2, float u2, float v2,
-    float light_intensity, texture_t texture)
+inline void draw_textured_triangle(int x0, int y0, float z0, float w0, float u0, float v0, int x1, int y1, float z1, float w1, float u1, float v1, int x2, int y2, float z2, float w2, float u2, float v2, float light_intensity, texture_t texture)
 {
 
     // We need to sort the vertices by y-coordinate ascending (y0 < y1 < y2)
@@ -122,9 +115,9 @@ void draw_textured_triangle(
     float inv_slope_2 = 0;
 
     if (y1 - y0 != 0)
-        inv_slope_1 = (float)(x1 - x0) / g_abs(y1 - y0);
+        inv_slope_1 = (float)(x1 - x0) / abs(y1 - y0);
     if (y2 - y0 != 0)
-        inv_slope_2 = (float)(x2 - x0) / g_abs(y2 - y0);
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
 
     if (y1 - y0 != 0)
     {
@@ -152,9 +145,9 @@ void draw_textured_triangle(
     inv_slope_2 = 0;
 
     if (y2 - y1 != 0)
-        inv_slope_1 = (float)(x2 - x1) / g_abs(y2 - y1);
+        inv_slope_1 = (float)(x2 - x1) / abs(y2 - y1);
     if (y2 - y0 != 0)
-        inv_slope_2 = (float)(x2 - x0) / g_abs(y2 - y0);
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
 
     if (y2 - y1 != 0)
     {
@@ -176,11 +169,7 @@ void draw_textured_triangle(
         }
     }
 }
-void draw_filled_triangle(
-    int x0, int y0, float z0, float w0,
-    int x1, int y1, float z1, float w1,
-    int x2, int y2, float z2, float w2,
-    int color)
+inline void draw_filled_triangle(int x0, int y0, float z0, float w0, int x1, int y1, float z1, float w1, int x2, int y2, float z2, float w2, int color)
 {
 
     // We need to sort the vertices by y-coordinate ascending (y0 < y1 < y2)
@@ -218,9 +207,9 @@ void draw_filled_triangle(
     float inv_slope_2 = 0;
 
     if (y1 - y0 != 0)
-        inv_slope_1 = (float)(x1 - x0) / g_abs(y1 - y0);
+        inv_slope_1 = (float)(x1 - x0) / abs(y1 - y0);
     if (y2 - y0 != 0)
-        inv_slope_2 = (float)(x2 - x0) / g_abs(y2 - y0);
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
 
     if (y1 - y0 != 0)
     {
@@ -249,9 +238,9 @@ void draw_filled_triangle(
     inv_slope_2 = 0;
 
     if (y2 - y1 != 0)
-        inv_slope_1 = (float)(x2 - x1) / g_abs(y2 - y1);
+        inv_slope_1 = (float)(x2 - x1) / abs(y2 - y1);
     if (y2 - y0 != 0)
-        inv_slope_2 = (float)(x2 - x0) / g_abs(y2 - y0);
+        inv_slope_2 = (float)(x2 - x0) / abs(y2 - y0);
 
     if (y2 - y1 != 0)
     {
@@ -273,12 +262,7 @@ void draw_filled_triangle(
         }
     }
 }
-
-void draw_triangle_texel(
-    int x, int y,
-    vec4_t point_a, vec4_t point_b, vec4_t point_c,
-    tex2_t a_uv, tex2_t b_uv, tex2_t c_uv,
-    float light_intensity, texture_t texture)
+inline void draw_triangle_texel(int x, int y, vec4_t point_a, vec4_t point_b, vec4_t point_c, tex2_t a_uv, tex2_t b_uv, tex2_t c_uv, float light_intensity, texture_t texture)
 {
     vec2_t p = {x, y};
     vec2_t a = vec2_from_vec4(point_a);
@@ -309,8 +293,8 @@ void draw_triangle_texel(
     interpolated_v /= interpolated_reciprocal_w;
 
     // Map the UV coordinate to the full texture width and height
-    int tex_x = g_abs((int)(interpolated_u * texture.width)) % texture.width;
-    int tex_y = g_abs((int)(interpolated_v * texture.height)) % texture.height;
+    int tex_x = abs((int)(interpolated_u * texture.width)) % texture.width;
+    int tex_y = abs((int)(interpolated_v * texture.height)) % texture.height;
 
     // Adjust 1/w so the pixels that are closer to the camera have smaller values
     interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
@@ -327,9 +311,7 @@ void draw_triangle_texel(
         display.z_buffer[(display.width * y) + x] = interpolated_reciprocal_w;
     }
 }
-void draw_triangle_pixel(
-    int x, int y, int color,
-    vec4_t point_a, vec4_t point_b, vec4_t point_c)
+inline void draw_triangle_pixel(int x, int y, int color, vec4_t point_a, vec4_t point_b, vec4_t point_c)
 {
     // Create three vec2 to find the interpolation
     vec2_t p = {x, y};
@@ -360,15 +342,14 @@ void draw_triangle_pixel(
         display.z_buffer[(display.width * y) + x] = interpolated_reciprocal_w;
     }
 }
-
-void draw_pixel(int x, int y, int color)
+inline void draw_pixel(int x, int y, int color)
 {
     if (x >= 0 && x < display.width && y >= 0 && y < display.height)
     {
         display.color_buffer[(display.width * y) + x] = color;
     }
 }
-void draw_line(int x0, int y0, int x1, int y1, int color)
+inline void draw_line(int x0, int y0, int x1, int y1, int color)
 {
     int delta_x = (x1 - x0);
     int delta_y = (y1 - y0);
@@ -388,93 +369,7 @@ void draw_line(int x0, int y0, int x1, int y1, int color)
         current_y += y_inc;
     }
 }
-
-void apply_fisheye()
-{
-    int centerX = display.half_width; // X coordinate of the fisheye center
-    int centerY = display.half_height; // X coordinate of the fisheye center
-    float strength = 0.005;
-    int width = display.width;
-    int height = display.height;
-
-    // Iterate through each pixel in the image buffer
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
-            // Calculate the distance from the center
-            int dx = x - centerX;
-            int dy = y - centerX;
-            float distance = sqrt(dx * dx + dy * dy);
-
-            // Apply the fisheye distortion
-            if (distance > 0)
-            {
-                float r = g_aTan2(dy, dx); // Angle from center
-                float distortion = strength * distance;
-                int newX = centerX + distortion * g_cos(r);
-                int newY = centerY + distortion * g_sin(r);
-
-                // Check if the new coordinates are within the image bounds
-                if (newX >= 0 && newX < width && newY >= 0 && newY < height)
-                {
-                    // Interpolate the color value from the original image buffer
-                    unsigned int color = display.color_buffer[newY * width + newX];
-                    // Assign the interpolated color to the current pixel
-                    display.color_buffer[y * width + x] = color;
-                }
-            }
-        }
-    }
-}
-
-
-
-
-void apply_barrel_distortion() {
-
-    int CANVAS_WIDTH = 320;
-    int CANVAS_HEIGHT =  240;
-
-    // Define the barrel distortion parameters
-    float K1 = 0.00005f;  // Adjust this value for horizontal distortion
-    float K2 = 0.00005f; // Adjust this value for vertical distortion
-    float CENTER_X = (CANVAS_WIDTH / 2);
-    float CENTER_Y = (CANVAS_HEIGHT / 2);
-
-    for (int y = 0; y < CANVAS_HEIGHT; y++) {
-        for (int x = 0; x < CANVAS_WIDTH; x++) {
-            // Calculate the distance from the center
-            double dx = x - CENTER_X;
-            double dy = y - CENTER_Y;
-            double r = sqrt(dx * dx + dy * dy);
-            
-            // Apply the barrel distortion formula
-            double r2 = r * r;
-            double scale = 1.0 + K1 * r2 + K2 * r2 * r2;
-            
-            // Map the distorted coordinates back to the original image
-            int srcX = (int)((dx / scale) + CENTER_X);
-            int srcY = (int)((dy / scale) + CENTER_Y);
-            
-            // Ensure the mapped coordinates are within bounds
-            if (srcX >= 0 && srcX < CANVAS_WIDTH && srcY >= 0 && srcY < CANVAS_HEIGHT) {
-                // Copy the pixel from the original image to the canvas
-                int destIndex = (y * CANVAS_WIDTH + x) * 4; // Assuming BGRA image
-                int srcIndex = (srcY * CANVAS_WIDTH + srcX) * 4; // Assuming BGRA image
-                
-                // Copy the BGRA values
-                for (int channel = 0; channel < 4; channel++) {
-                    display.color_buffer[destIndex + channel] = display.color_buffer[srcIndex + channel];
-                }
-            }
-        }
-    }
-
-    int_log(display.color_buffer[100]);
-}
-
-void clear_color_buffer(int color)
+inline void clear_color_buffer(int color)
 {
     for (int y = 0; y < display.height; y++)
     {
@@ -484,7 +379,7 @@ void clear_color_buffer(int color)
         }
     }
 }
-void clear_z_buffer(void)
+inline void clear_z_buffer(void)
 {
     for (int y = 0; y < display.height; y++)
     {
@@ -494,11 +389,109 @@ void clear_z_buffer(void)
         }
     }
 }
-
-unsigned int *set_render_mode()
+inline unsigned int *set_render_mode()
 {
     unsigned int *render_mode_buffer = malloc(3 * sizeof(int));
     display.render_mode = render_mode_buffer;
 
     return render_mode_buffer;
+}
+
+inline void apply_fisheye(display_size_t display_size)
+{
+    int w = display_size.width;
+    int h = display_size.height;
+
+    for (int y = 0; y < h; y++)
+    {
+        // normalize y coordinate
+        double ny = ((2 * y) / h) - 1;
+        // pre calculate ny*ny
+        double ny2 = ny * ny;
+
+        for (int x = 0; x < w; x++)
+        {
+            // normalize x coordinate
+            double nx = ((2 * x) / w) - 1;
+            // pre calculate nx*nx
+            double nx2 = nx * nx;
+            // calculate distance from center
+            double r = sqrt(nx2 + ny2);
+            // discard pixels outside circle
+            if (0.0 <= r && r <= 1.0)
+            {
+                double nr = sqrt(1.0 - r * r);
+                // new distance between 0 and 1
+                nr = (r + (1.0 - nr)) / 2.0;
+                // discard radius greater than 1.0
+                if (nr <= 1.0)
+                {
+                    // calculate the angle for polar coordinates
+                    double theta = atan2(ny, nx);
+                    // calculate new x position
+                    double nxn = nr * cos(theta);
+                    // calculate new y position
+                    double nyn = nr * sin(theta);
+                    // map to image coordinates
+                    int x2 = (int)(((nxn + 1) * w) / 2.0);
+                    int y2 = (int)(((nyn + 1) * h) / 2.0);
+                    // make sure position is in bounds
+                    if (x2 >= 0 && y2 >= 0 && x2 < w && y2 < h)
+                    {
+                        // get new pixel (x2,y2) and put it to target at (x,y)
+
+                        int index = y * w + x;
+                        int new_index = y2 * w + x2;
+
+                        // Copy the color from the original image to the distorted image
+                        display.color_buffer[index] = display.color_buffer[new_index];
+                        // set_pixel(tmpSurface, x, y, get_pixel(surface, x2, y2));
+                    }
+                }
+            }
+        }
+    }
+}
+inline void apply_barrel_distortion(display_size_t display_size)
+{
+    int width = display_size.width;
+    int height = display_size.height;
+
+    float centerX = display_size.center_x;
+    float centerY = display_size.center_y;
+
+    float maxDist = hypot(centerX, centerY);
+
+    float strength = 20.02;
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            int dx = x - centerX;
+            int dy = y - centerY;
+            float r = hypot(dx, dy);
+            if (r < maxDist)
+            {
+                // Calculate the angle
+                float angle = atan2(dy, dx);
+
+                // Apply the barrel distortion
+                float newR = r + strength * pow(r / maxDist, 2);
+
+                // Calculate the new coordinates
+                int newX = centerX + newR * cos(angle);
+                int newY = centerY + newR * sin(angle);
+
+                if (newX >= 0 && newX < width && newY >= 0 && newY < height)
+                {
+                    // Get the color from the original pixel
+                    uint32_t color = display.color_buffer[y * width + x];
+
+                    // Put the color in the distorted position
+                    display.color_buffer[newY * width + newX] = color;
+                }
+            }
+        }
+    }
 }

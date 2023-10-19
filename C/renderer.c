@@ -1,7 +1,7 @@
 #include "renderer.h"
 #include "camera3d.h"
 
-void render_object(object3d_t *obj3d, mat4_t view_matrix)
+inline void render_object(object3d_t *obj3d, mat4_t view_matrix)
 {
 
     float_log(light3d->direction[0]);
@@ -9,7 +9,7 @@ void render_object(object3d_t *obj3d, mat4_t view_matrix)
     float_log(light3d->direction[2]);
 }
 
-void transform_object(mat4_t view_matrix, mat4_t proj_matrix, object3d_t *obj3d, display_size_t display, vec3_t light_dir)
+inline void transform_object(mat4_t view_matrix, mat4_t proj_matrix, object3d_t *obj3d, display_size_t display, vec3_t light_dir)
 {
     int num_triangles_to_render = 0;
 

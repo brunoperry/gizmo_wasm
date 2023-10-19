@@ -1,7 +1,7 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
-#include "gmath.h"
+#include "vector.h"
 #include "mesh.h"
 #include "light3d.h"
 #include "wasm.h"

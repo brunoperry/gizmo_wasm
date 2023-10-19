@@ -1,6 +1,6 @@
 #include "object.h"
 
-object3d_t *obj3d_build(object3d_to_build_t *obj3d_to_build)
+inline object3d_t *obj3d_build(object3d_to_build_t *obj3d_to_build)
 {
     object3d_t *obj3d = (object3d_t *)malloc(sizeof(object3d_t));
 

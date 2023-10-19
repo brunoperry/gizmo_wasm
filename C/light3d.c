@@ -1,6 +1,6 @@
 #include "light3d.h"
 
-light_t *light_build(light_t *light_to_build)
+inline light_t *light_build(light_t *light_to_build)
 {
     light_t *light = (light_t *)malloc(sizeof(light_t));
 
@@ -10,7 +10,7 @@ light_t *light_build(light_t *light_to_build)
     return light;
 }
 
-int light_apply_intensity(int original_color, float percentage_factor)
+inline int light_apply_intensity(int original_color, float percentage_factor)
 {
     if (percentage_factor < 0.3)
         percentage_factor = 0.3;
@@ -25,7 +25,7 @@ int light_apply_intensity(int original_color, float percentage_factor)
     return color;
 }
 
-int light_apply_ambient(light_t light, int color)
+inline int light_apply_ambient(light_t light, int color)
 {
     int ambient = 1 * light.color;
     return (color & 0xFF000000) |

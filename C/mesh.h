@@ -2,7 +2,8 @@
 #define MESH_H
 
 #include "wasm.h"
-#include "gmath.h"
+#include "vector.h"
+#include "texture.h"
 
 #define MAX_TRIANGLES 10000
 

@@ -1,9 +1,13 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include "stdlib.h"
+#include <math.h>
 #include "mesh.h"
-#include "gmath.h"
-#include "walloc.h"
+#include "vector.h"
+#include "matrix.h"
+#include "light3d.h"
+#include "utils.h"
 
 #define NUM_PLANES 6
 
@@ -58,6 +62,7 @@ mat4_t cam_view();
 void init_frustum_planes();
 polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle);
 void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles);
+void clip_polygon_against_plane(polygon_t *polygon, int plane);
 void clip_polygon(polygon_t *polygon);
 
 #endif

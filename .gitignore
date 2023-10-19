@@ -1,3 +1,5 @@
 .vscode
 .mayaSwatches
 .DS_Store
+makefile
+web/src/gizmo.wasm

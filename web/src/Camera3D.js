@@ -1,6 +1,12 @@
 import Display from "./Display.js";
 import WASM from "./WASM.js";
-import { mat4_from_rotation, vec3, vec3_cross, vec3_scale_and_add, vec3_transform_mat4} from "./math.js";
+import {
+  mat4_from_rotation,
+  vec3,
+  vec3_cross,
+  vec3_scale_and_add,
+  vec3_transform_mat4,
+} from "./math.js";
 import InputController from "./InputController.js";
 export default class Camera3D {
   #MOVEMENT_SPEED = 0.1;
@@ -44,19 +50,23 @@ export default class Camera3D {
     this.#checkInputs();
   }
   #mouseUpdate() {
-    const rotateY = mat4_from_rotation(-InputController.MouseDX * this.#ROTATE_SPEED, this.#UP);
+    const rotateY = mat4_from_rotation(
+      -InputController.MouseDX * this.#ROTATE_SPEED,
+      this.#UP
+    );
 
     const toRotateAround = vec3_cross(this.#dir, this.#UP);
-    const rotateX = mat4_from_rotation(InputController.MouseDY * this.#ROTATE_SPEED, toRotateAround);
-    
+    const rotateX = mat4_from_rotation(
+      InputController.MouseDY * this.#ROTATE_SPEED,
+      toRotateAround
+    );
 
     this.#dir = vec3_transform_mat4(this.#dir, rotateX);
     this.#dir = vec3_transform_mat4(this.#dir, rotateY);
-    
+
     this.direction = vec3(this.#dir.x, this.#dir.y, this.#dir.z);
   }
   #checkInputs() {
-    
     if (InputController.getKey(InputController.Key.W)) {
       this.#move_forward();
     } else if (InputController.getKey(InputController.Key.S)) {
@@ -71,7 +81,6 @@ export default class Camera3D {
   }
 
   #move_forward() {
-
     this.position = vec3_scale_and_add(this.#pos, this.#dir, this.#MOVEMENT_SPEED);
   }
   #move_backward() {

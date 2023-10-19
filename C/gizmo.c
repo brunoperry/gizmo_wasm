@@ -1,4 +1,4 @@
-#include "walloc.h"
+#include "stdlib.h"
 #include "wasm.h"
 
 #include "display.h"
@@ -6,13 +6,17 @@
 #include "camera3d.h"
 #include "light3d.h"
 #include "object.h"
-#include "gmath.h"
+#include "vector.h"
+#include "matrix.h"
 
 static display_size_t display_size;
+
 EXPORT unsigned int *set_color_buffer(int width, int height)
 {
     display_size.width = width;
     display_size.height = height;
+    display_size.center_x = width / 2;
+    display_size.center_y = height / 2;
     return display_create(width, height);
 }
 EXPORT unsigned int *set_render_mode_buffer()
@@ -127,15 +131,18 @@ EXPORT void update()
         total_tris += objs3d[i]->mesh.num_triangles_to_render;
         draw(objs3d[i]);
     }
-
-    apply_fisheye();
     info_log(total_tris, total_tris * 3);
+    // apply_barrel_distortion(display_size);
 }
 
-EXPORT void apply_filter(int filter) {
-    if(filter == 0) {
-        apply_barrel_distortion();
-    } else if(filter == 1) {
-        apply_fisheye();
+EXPORT void apply_filter(int filter)
+{
+    if (filter == 0)
+    {
+        apply_barrel_distortion(display_size);
+    }
+    else if (filter == 1)
+    {
+        apply_fisheye(display_size);
     }
 }

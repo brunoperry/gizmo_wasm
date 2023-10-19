@@ -1,8 +1,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "gmath.h"
-#include "walloc.h"
+#include "stdlib.h"
 #include "wasm.h"
 
 typedef struct
