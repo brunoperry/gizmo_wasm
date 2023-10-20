@@ -30,5 +30,34 @@
       "url": "./resources/images/texture_null.png"
     }
   ],
-  "audios": []
+  "audios": [
+    {
+      "name": "main",
+      "url": "./resources/audios/main.mp3"
+    },
+    {
+      "name": "a",
+      "url": "./resources/audios/a.mp3"
+    },
+    {
+      "name": "b",
+      "url": "./resources/audios/b.mp3"
+    },
+    {
+      "name": "c",
+      "url": "./resources/audios/c.mp3"
+    },
+    {
+      "name": "d",
+      "url": "./resources/audios/d.mp3"
+    },
+    {
+      "name": "e",
+      "url": "./resources/audios/e.mp3"
+    },
+    {
+      "name": "f",
+      "url": "./resources/audios/f.mp3"
+    }
+  ]
 }

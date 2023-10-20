@@ -344,28 +344,26 @@ inline void draw_triangle_pixel(int x, int y, int color, vec4_t point_a, vec4_t 
 }
 inline void draw_pixel(int x, int y, uint32_t color)
 {
-    if (x >= 0 && x < display.width && y >= 0 && y < display.height)
+    if (x >= 0 && x < 320 && y >= 0 && y < 240)
     {
-        // display.color_buffer[(display.width * y) + x] = color;
-
         uint32_t *target_pixel = &display.color_buffer[(320 * y) + x];
 
         // Extract the alpha, red, green, and blue components of the colors
-        uint8_t alpha_new = (color >> 24) & 0xFF;
+        uint8_t alpha_new = (color >> 24);
         uint8_t red_new = (color >> 16) & 0xFF;
         uint8_t green_new = (color >> 8) & 0xFF;
         uint8_t blue_new = color & 0xFF;
 
-        uint8_t alpha_old = (*target_pixel >> 24) & 0xFF;
+        uint8_t alpha_old = (*target_pixel >> 24);
         uint8_t red_old = (*target_pixel >> 16) & 0xFF;
         uint8_t green_old = (*target_pixel >> 8) & 0xFF;
         uint8_t blue_old = *target_pixel & 0xFF;
 
         // Calculate the new color components with alpha blending
-        uint8_t alpha_result = alpha_new + (alpha_old * (255 - alpha_new) / 255);
-        uint8_t red_result = (red_new * alpha_new / 255) + (red_old * (255 - alpha_new) / 255);
-        uint8_t green_result = (green_new * alpha_new / 255) + (green_old * (255 - alpha_new) / 255);
-        uint8_t blue_result = (blue_new * alpha_new / 255) + (blue_old * (255 - alpha_new) / 255);
+        uint8_t alpha_result = alpha_new + ((alpha_old * (255 - alpha_new)) >> 8);
+        uint8_t red_result = ((red_new * alpha_new) >> 8) + ((red_old * (255 - alpha_new)) >> 8);
+        uint8_t green_result = ((green_new * alpha_new) >> 8) + ((green_old * (255 - alpha_new)) >> 8);
+        uint8_t blue_result = ((blue_new * alpha_new) >> 8) + ((blue_old * (255 - alpha_new)) >> 8);
 
         // Combine the components into a new color and update the color buffer
         *target_pixel = (alpha_result << 24) | (red_result << 16) | (green_result << 8) | blue_result;
@@ -421,54 +419,40 @@ inline unsigned int *set_render_mode()
 
 inline void apply_fisheye(display_size_t display_size)
 {
-    int w = display_size.width;
-    int h = display_size.height;
+    int width = display_size.width;
+    int height = display_size.height;
 
-    for (int y = 0; y < h; y++)
+    int center_x = display_size.center_x;
+    int center_y = display_size.center_y;
+    float threshold = 0.5f * sqrt((float)width * (float)width + (float)height * (float)height);
+
+    // Iterate over all pixels in the image.
+    for (int y = 0; y < height; y++)
     {
-        // normalize y coordinate
-        double ny = ((2 * y) / h) - 1;
-        // pre calculate ny*ny
-        double ny2 = ny * ny;
-
-        for (int x = 0; x < w; x++)
+        for (int x = 0; x < width; x++)
         {
-            // normalize x coordinate
-            double nx = ((2 * x) / w) - 1;
-            // pre calculate nx*nx
-            double nx2 = nx * nx;
-            // calculate distance from center
-            double r = sqrt(nx2 + ny2);
-            // discard pixels outside circle
-            if (0.0 <= r && r <= 1.0)
+            // Calculate the distance from the current pixel to the center of the image.
+            float distance = sqrt((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
+
+            // Check if the pixel is within the threshold distance from the center.
+            if (distance <= threshold)
             {
-                double nr = sqrt(1.0 - r * r);
-                // new distance between 0 and 1
-                nr = (r + (1.0 - nr)) / 2.0;
-                // discard radius greater than 1.0
-                if (nr <= 1.0)
+                // Calculate the equisolid fisheye distortion factor.
+                float r = distance / threshold;
+                float distortion_factor = (2.0f / M_PI) * asin(r);
+
+                // Calculate the new coordinates of the pixel after applying the fisheye effect.
+                int new_x = (int)(center_x + distortion_factor * (x - center_x));
+                int new_y = (int)(center_y + distortion_factor * (y - center_y));
+
+                // Check if the new coordinates are within the bounds of the image.
+                if (new_x >= 0 && new_x < width && new_y >= 0 && new_y < height)
                 {
-                    // calculate the angle for polar coordinates
-                    double theta = atan2(ny, nx);
-                    // calculate new x position
-                    double nxn = nr * cos(theta);
-                    // calculate new y position
-                    double nyn = nr * sin(theta);
-                    // map to image coordinates
-                    int x2 = (int)(((nxn + 1) * w) / 2.0);
-                    int y2 = (int)(((nyn + 1) * h) / 2.0);
-                    // make sure position is in bounds
-                    if (x2 >= 0 && y2 >= 0 && x2 < w && y2 < h)
-                    {
-                        // get new pixel (x2,y2) and put it to target at (x,y)
+                    // Get the color of the pixel at the new coordinates.
+                    uint32_t color = display.color_buffer[new_y * width + new_x];
 
-                        int index = y * w + x;
-                        int new_index = y2 * w + x2;
-
-                        // Copy the color from the original image to the distorted image
-                        display.color_buffer[index] = display.color_buffer[new_index];
-                        // set_pixel(tmpSurface, x, y, get_pixel(surface, x2, y2));
-                    }
+                    // Set the color of the current pixel to the color of the pixel at the new coordinates.
+                    display.color_buffer[y * width + x] = color;
                 }
             }
         }
@@ -476,43 +460,38 @@ inline void apply_fisheye(display_size_t display_size)
 }
 inline void apply_barrel_distortion(display_size_t display_size)
 {
+    // Find the center of the image
     int width = display_size.width;
     int height = display_size.height;
+    float center_x = display_size.center_x;
+    float center_y = display_size.center_y;
 
-    float centerX = display_size.center_x;
-    float centerY = display_size.center_y;
+    float k = 0.006f; // Distortion factor
 
-    float maxDist = hypot(centerX, centerY);
-
-    float strength = 20.02;
-
+    // Iterate over all pixels in the image.
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            int dx = x - centerX;
-            int dy = y - centerY;
-            float r = hypot(dx, dy);
-            if (r < maxDist)
+            // Calculate the distance from the current pixel to the center of the image.
+            float distance = sqrt((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
+
+            // Calculate the new coordinates of the pixel after applying the barrel distortion effect.
+            float new_x = (x - center_x) * (1.0f + k * distance * distance / (width * width)) + center_x;
+            float new_y = (y - center_y) * (1.0f + k * distance * distance / (height * height)) + center_y;
+
+            // Round the new coordinates to the nearest integer.
+            int round_x = (int)(new_x + 0.5f);
+            int round_y = (int)(new_y + 0.5f);
+
+            // Check if the new coordinates are within the bounds of the image.
+            if (round_x >= 0 && round_x < width && round_y >= 0 && round_y < height)
             {
-                // Calculate the angle
-                float angle = atan2(dy, dx);
+                // Get the color of the pixel at the new coordinates.
+                uint32_t color = display.color_buffer[round_y * width + round_x];
 
-                // Apply the barrel distortion
-                float newR = r + strength * pow(r / maxDist, 2);
-
-                // Calculate the new coordinates
-                int newX = centerX + newR * cos(angle);
-                int newY = centerY + newR * sin(angle);
-
-                if (newX >= 0 && newX < width && newY >= 0 && newY < height)
-                {
-                    // Get the color from the original pixel
-                    uint32_t color = display.color_buffer[y * width + x];
-
-                    // Put the color in the distorted position
-                    display.color_buffer[newY * width + newX] = color;
-                }
+                // Set the color of the current pixel to the color of the pixel at the new coordinates.
+                display.color_buffer[y * width + x] = color;
             }
         }
     }

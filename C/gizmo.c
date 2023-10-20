@@ -132,7 +132,6 @@ EXPORT void update()
         draw(objs3d[i]);
     }
     info_log(total_tris, total_tris * 3);
-    // apply_barrel_distortion(display_size);
 }
 
 EXPORT void apply_filter(int filter)

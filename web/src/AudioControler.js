@@ -7,7 +7,6 @@ export default class AudioController {
   #vol = 0.5;
   #listener;
   constructor(listener = null) {
-    console.log(Resources.audios);
     this.#trks = Resources.audios;
     this.#main_track = Resources.main_audio;
     this.#audio_ctx = new AudioContext();

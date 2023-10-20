@@ -42,8 +42,7 @@ export default class Resources {
       const audio_data = await Resources.#load_audio_file(raw_data.audios[i].url);
 
       const audio = new AudioTrack(audio_data, raw_data.audios[i].name);
-      if (!raw_data.audios[i].name) {
-        audio.name = "main";
+      if (audio.name === "main") {
         Resources.main_audio = audio;
         continue;
       }

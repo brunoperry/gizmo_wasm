@@ -40,7 +40,7 @@ export default class Engine {
     InputController.initialize();
 
     this.#scene = new scene();
-    // this.#audio = new AudioController();
+    this.#audio = new AudioController();
     this.#display = new Display();
 
     document.addEventListener("pointerlockchange", (e) => {
@@ -54,6 +54,8 @@ export default class Engine {
     if (this.#loopID) return;
     this.#display.lock_cursor = true;
     this.#loopID = requestAnimationFrame(() => this.#loop());
+    this.#audio.play();
+
     this.#listener(Engine.States.PLAYING);
   }
   playOnce() {
@@ -69,6 +71,7 @@ export default class Engine {
     this.#display.lock_cursor = false;
     cancelAnimationFrame(this.#loopID);
     this.#loopID = null;
+    this.#audio.pause();
     this.#listener(Engine.States.STOPPED);
   }
 

@@ -172,16 +172,23 @@ button:active {
   aspect-ratio: auto;
 }
 
-#cross {
-  position: absolute;
-  width: 32px;
-  mix-blend-mode: difference;
-  visibility: hidden;
-  opacity: 0;
-  transition: scale calc(var(--speed) * 0.2) ease-out;
+#controls {
+  display: grid;
+  grid-template-areas:
+    'filters freqs'
+    'actions tracks';
+  grid-template-columns: 200px auto;
+  gap: var(--gap);
+  transition: opacity var(--speed) ease-in-out;
 }
 
-#controls {
+#controls button {
+  max-width: 64px;
+  max-height: 64px;
+}
+
+#actions {
+  grid-area: actions;
   display: flex;
   gap: var(--gap);
   justify-content: flex-start;
@@ -189,9 +196,22 @@ button:active {
   transition: opacity var(--speed) ease-in-out;
 }
 
-#controls button {
-  max-width: 64px;
-  max-height: 64px;
+#freqs {
+  grid-area: freqs;
+  display: flex;
+  justify-self: stretch;
+}
+
+#tracks {
+  grid-area: tracks;
+  display: flex;
+  flex: 1;
+}
+
+#tracks button {
+  color: white;
+  max-width: none;
+  max-height: none;
 }
 
 #console {
@@ -231,8 +251,19 @@ button:active {
   font-family: "Lucida Console", "Courier New", monospace;
 }
 
+#filters {
+  grid-area: filters;
+  display: flex;
+  gap: var(--gap);
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  transition: opacity var(--speed) ease-in-out;
+}
+
 #filters button {
   color: whitesmoke;
+  max-width: none;
+  max-height: none;
 }
 
 button.toggled {

@@ -1,11 +1,12 @@
 import Display from "./Display.js";
+import Resources from "./Resources.js";
 
 export class UI {
   static Actions = {
     PLAY_PAUSE: "playpause",
     NEXT: "next",
     RENDER_MODE: "rendermode",
-    FILTER: "filter"
+    FILTER: "filter",
   };
   #listener = null;
 
@@ -41,6 +42,7 @@ export class UI {
   enable() {
     this.#hud.className = "";
     this.#controls.className = "";
+    this.finishUI();
   }
 
   disable() {
@@ -110,15 +112,23 @@ export class UI {
     filters.querySelector("#barrel").onclick = () => {
       this.#listener({
         action: UI.Actions.FILTER,
-        filter:"barrel",
+        filter: "barrel",
       });
-    }
+    };
     filters.querySelector("#fisheye").onclick = () => {
       this.#listener({
         action: UI.Actions.FILTER,
-        filter:"fisheye",
+        filter: "fisheye",
       });
-    }
+    };
+  }
+  finishUI() {
+    const tracks = document.querySelector("#tracks");
+    Resources.audios.forEach((audio, index) => {
+      const btn = document.createElement("button");
+      btn.innerText = `track ${audio.name}`;
+      tracks.appendChild(btn);
+    });
   }
 
   log_console(value, color = "var(--color-d)") {

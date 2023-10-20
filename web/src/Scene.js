@@ -1,6 +1,7 @@
-import WASM from './WASM.js';
-import Light3D from './Light3D.js';
-import Camera3D from './Camera3D.js';
+import WASM from "./WASM.js";
+import Light3D from "./Light3D.js";
+import Camera3D from "./Camera3D.js";
+import { vec3 } from "./math.js";
 
 export default class Scene {
   objects_3d = [];
@@ -8,15 +9,12 @@ export default class Scene {
   light;
   camera;
   name;
-  constructor(name = 'unnamed') {
+  constructor(name = "unnamed") {
     this.name = name;
     this.light = new Light3D();
     this.camera = new Camera3D();
 
-    // this.player = new Player();
-
     this.set_light(this.light);
-    // this.set_camera(this.player);
     this.set_camera(this.camera);
   }
 
@@ -34,6 +32,5 @@ export default class Scene {
 
   update() {
     this.camera.update();
-    // this.player.update();
   }
 }
