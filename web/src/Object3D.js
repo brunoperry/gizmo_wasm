@@ -1,4 +1,4 @@
-import { vec3 } from "./math.js";
+import { angleToRadians, vec3 } from "./math.js";
 import WASM from "./WASM.js";
 
 export default class Object3D {
@@ -44,7 +44,7 @@ export default class Object3D {
   }
   set rotation(vec) {
     this.#rot = vec;
-    new Float32Array(WASM.mem, this.#r_buffer, 3).set([vec.x, vec.y, vec.z]);
+    new Float32Array(WASM.mem, this.#r_buffer, 3).set([angleToRadians(vec.x), angleToRadians(vec.y), angleToRadians(vec.z)]);
   }
 
   get scale() {

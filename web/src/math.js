@@ -54,3 +54,10 @@ export const mat4_from_rotation = (rad, axis) => {
     [0, 0, 0, 1],
   ];
 };
+
+export const angleToRadians = (angle) => {
+  return (angle * Math.PI) / 180;
+}
+export const radiansToAngle = (rad) => {
+  return (rad * 180) / Math.PI;
+}

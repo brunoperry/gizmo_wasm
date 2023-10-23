@@ -101,6 +101,13 @@ export default class Engine {
     this.#display.update();
   }
 
+  getFrequency(freqIndex) {
+    return this.#audio.get_frequency(freqIndex);
+  }
+  getAudioTrack(audioIndex) {
+    return this.#audio.get_track(audioIndex);
+  }
+
   get render_mode() {
     return this.#display.render_mode;
   }

@@ -20,6 +20,9 @@ const ui = new UI((e) => {
     case UI.Actions.FILTER:
       engine.applyFilter(e.filter);
       break;
+    case UI.Actions.GET_AUDIO:
+      ui.setAudio(engine.getAudioTrack(e.index));
+      break;
   }
 });
 /**

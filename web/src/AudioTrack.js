@@ -38,6 +38,8 @@ export default class AudioTrack {
     this.#analizer.smoothingTimeConstant = 0.9;
 
     this.#fbc = new Uint8Array(this.#analizer.frequencyBinCount);
+
+    console.log(this.#fbc[0]);
     if (this.name === "main") {
       this.volume = 0;
     }

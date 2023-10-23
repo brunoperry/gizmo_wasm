@@ -7,6 +7,7 @@ export class UI {
     NEXT: "next",
     RENDER_MODE: "rendermode",
     FILTER: "filter",
+    GET_AUDIO: "getaudio"
   };
   #listener = null;
 
@@ -28,10 +29,11 @@ export class UI {
   #console = null;
   #logs = null;
 
-  #crosshair = null;
-
   #is_ready = false;
   #is_console_open = false;
+
+  #freqCanvas;
+  #currentTrack;
 
   constructor(listener) {
     this.#listener = listener;
@@ -123,12 +125,39 @@ export class UI {
     };
   }
   finishUI() {
+
+    this.#freqCanvas = document.querySelector("#freqs").querySelector("canvas");
     const tracks = document.querySelector("#tracks");
+
+    let currentTrack = 0;
     Resources.audios.forEach((audio, index) => {
       const btn = document.createElement("button");
       btn.innerText = `track ${audio.name}`;
+      btn.onclick = () => {
+
+        tracks.children[currentTrack].className = "";
+        currentTrack = index;
+        tracks.children[currentTrack].className = "toggle";
+        this.#listener({
+          action: UI.Actions.GET_AUDIO,
+          index: 0
+        })
+      }
+      if(index === currentTrack) {
+        btn.className = "toggle"
+      }
       tracks.appendChild(btn);
     });
+  }
+  setAudio(audioTrack) {
+    // console.log(audioTrack);
+    this.#currentTrack = audioTrack;
+  }
+  updateFreqCanvas() {
+
+    console.log(this.#freqCanvas.width);
+
+    // console.log(this.#currentTrack.get_frequency(0));
   }
 
   log_console(value, color = "var(--color-d)") {
@@ -186,6 +215,8 @@ export class UI {
     this.#fps_label.innerText = data.fps;
     this.#verts_label.innerText = data.verts;
     this.#tris_label.innerText = data.tris;
+
+    this.updateFreqCanvas();
   }
 
   set_scene_name(name, subtitle = null) {
