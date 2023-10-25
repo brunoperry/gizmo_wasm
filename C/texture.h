@@ -10,7 +10,7 @@ typedef struct
 {
     int width;
     int height;
-    unsigned int *data;
+    unsigned int *texture_buffer;
     float light_intensity;
 
 } texture_t;
@@ -24,6 +24,5 @@ typedef struct
 } rendertarget_t;
 
 double get_depth(vec3_t point, vec3_t light_position, vec3_t light_direction);
-// void render_shadow_map(rendertarget_t *shadow_map, triangle_t *triangles, int triangle_count, light_t light);
 
 #endif

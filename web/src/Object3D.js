@@ -1,4 +1,5 @@
 import { angleToRadians, vec3 } from "./math.js";
+import Texture from "./Texture.js";
 import WASM from "./WASM.js";
 
 export default class Object3D {
@@ -18,16 +19,21 @@ export default class Object3D {
     new Float32Array(WASM.mem, buffers[0], this.vertices.length).set(this.vertices);
     new Float32Array(WASM.mem, buffers[1], this.uvs.length).set(this.uvs);
     new Float32Array(WASM.mem, buffers[2], this.normals.length).set(this.normals);
-    new Uint8ClampedArray(WASM.mem, buffers[6], this.texture.length).set(
-      this.texture.data
-    );
     this.#p_buffer = buffers[3];
     this.#r_buffer = buffers[4];
     this.#s_buffer = buffers[5];
 
+    new Int8Array(WASM.mem, buffers[6], 1).set(this.texture.id);
+
     this.position = vec3(0, 0, 0);
     this.rotation = vec3(0, 0, 0);
     this.scale = vec3(1, 1, 1);
+  }
+
+  clone() {
+    const obj = new Object3D(this.#obj_data);
+    obj.texture = this.texture;
+    return obj;
   }
 
   get position() {
@@ -44,7 +50,11 @@ export default class Object3D {
   }
   set rotation(vec) {
     this.#rot = vec;
-    new Float32Array(WASM.mem, this.#r_buffer, 3).set([angleToRadians(vec.x), angleToRadians(vec.y), angleToRadians(vec.z)]);
+    new Float32Array(WASM.mem, this.#r_buffer, 3).set([
+      angleToRadians(vec.x),
+      angleToRadians(vec.y),
+      angleToRadians(vec.z),
+    ]);
   }
 
   get scale() {

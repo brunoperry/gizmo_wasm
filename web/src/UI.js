@@ -7,7 +7,7 @@ export class UI {
     NEXT: "next",
     RENDER_MODE: "rendermode",
     FILTER: "filter",
-    GET_AUDIO: "getaudio"
+    GET_AUDIO: "getaudio",
   };
   #listener = null;
 
@@ -125,7 +125,6 @@ export class UI {
     };
   }
   finishUI() {
-
     this.#freqCanvas = document.querySelector("#freqs").querySelector("canvas");
     const tracks = document.querySelector("#tracks");
 
@@ -134,17 +133,16 @@ export class UI {
       const btn = document.createElement("button");
       btn.innerText = `track ${audio.name}`;
       btn.onclick = () => {
-
         tracks.children[currentTrack].className = "";
         currentTrack = index;
         tracks.children[currentTrack].className = "toggle";
         this.#listener({
           action: UI.Actions.GET_AUDIO,
-          index: 0
-        })
-      }
-      if(index === currentTrack) {
-        btn.className = "toggle"
+          index: 0,
+        });
+      };
+      if (index === currentTrack) {
+        btn.className = "toggle";
       }
       tracks.appendChild(btn);
     });
@@ -154,9 +152,6 @@ export class UI {
     this.#currentTrack = audioTrack;
   }
   updateFreqCanvas() {
-
-    console.log(this.#freqCanvas.width);
-
     // console.log(this.#currentTrack.get_frequency(0));
   }
 

@@ -35,8 +35,8 @@ export default class Engine {
   }
 
   async start_engine(scene) {
-    await Resources.initialize(this.#listener, Engine.States.LOADING);
     await WASM.initialize();
+    await Resources.initialize(this.#listener, Engine.States.LOADING);
     InputController.initialize();
 
     this.#scene = new scene();
@@ -54,7 +54,7 @@ export default class Engine {
     if (this.#loopID) return;
     this.#display.lock_cursor = true;
     this.#loopID = requestAnimationFrame(() => this.#loop());
-    this.#audio.play();
+    // this.#audio.play();
 
     this.#listener(Engine.States.PLAYING);
   }
@@ -71,7 +71,7 @@ export default class Engine {
     this.#display.lock_cursor = false;
     cancelAnimationFrame(this.#loopID);
     this.#loopID = null;
-    this.#audio.pause();
+    // this.#audio.pause();
     this.#listener(Engine.States.STOPPED);
   }
 

@@ -17,6 +17,22 @@ inline uint32_t *display_create(int width, int height)
 
     return color_buffer;
 }
+inline unsigned int *add_texture(int width, int height, int id)
+{
+
+    int length = width * height;
+
+    unsigned int *texture_buffer = malloc(length * sizeof(uint32_t));
+
+    texture_t *texture = malloc(sizeof(texture_t));
+    texture->width = width;
+    texture->height = height;
+    texture->texture_buffer = texture_buffer;
+    textures[total_textures] = texture;
+    total_textures++;
+
+    return texture_buffer;
+}
 inline void draw(object3d_t *obj3d)
 {
     if (display.render_mode[0] == 0)
@@ -46,14 +62,16 @@ inline void draw(object3d_t *obj3d)
     }
     else
     {
+        texture_t *texture = textures[obj3d->textureID];
         for (int i = 0; i < obj3d->mesh.num_triangles_to_render; i++)
         {
             triangle_t triangle = obj3d->mesh.triangles_to_render[i];
+
             draw_textured_triangle(
                 triangle.projected_points[0].x, triangle.projected_points[0].y, triangle.projected_points[0].z, triangle.projected_points[0].w, triangle.projected_uvs[0].u, triangle.projected_uvs[0].v, // vertex A
                 triangle.projected_points[1].x, triangle.projected_points[1].y, triangle.projected_points[1].z, triangle.projected_points[1].w, triangle.projected_uvs[1].u, triangle.projected_uvs[1].v, // vertex B
                 triangle.projected_points[2].x, triangle.projected_points[2].y, triangle.projected_points[2].z, triangle.projected_points[2].w, triangle.projected_uvs[2].u, triangle.projected_uvs[2].v, // vertex C
-                triangle.light_intensity, obj3d->texture);
+                triangle.light_intensity, texture);
         }
     }
 }
@@ -63,7 +81,7 @@ inline void draw_wired_triangle(int x0, int y0, int x1, int y1, int x2, int y2, 
     draw_line(x1, y1, x2, y2, color);
     draw_line(x2, y2, x0, y0, color);
 }
-inline void draw_textured_triangle(int x0, int y0, float z0, float w0, float u0, float v0, int x1, int y1, float z1, float w1, float u1, float v1, int x2, int y2, float z2, float w2, float u2, float v2, float light_intensity, texture_t texture)
+inline void draw_textured_triangle(int x0, int y0, float z0, float w0, float u0, float v0, int x1, int y1, float z1, float w1, float u1, float v1, int x2, int y2, float z2, float w2, float u2, float v2, float light_intensity, texture_t *texture)
 {
 
     // We need to sort the vertices by y-coordinate ascending (y0 < y1 < y2)
@@ -262,7 +280,7 @@ inline void draw_filled_triangle(int x0, int y0, float z0, float w0, int x1, int
         }
     }
 }
-inline void draw_triangle_texel(int x, int y, vec4_t point_a, vec4_t point_b, vec4_t point_c, tex2_t a_uv, tex2_t b_uv, tex2_t c_uv, float light_intensity, texture_t texture)
+inline void draw_triangle_texel(int x, int y, vec4_t point_a, vec4_t point_b, vec4_t point_c, tex2_t a_uv, tex2_t b_uv, tex2_t c_uv, float light_intensity, texture_t *texture)
 {
     vec2_t p = {x, y};
     vec2_t a = vec2_from_vec4(point_a);
@@ -293,8 +311,8 @@ inline void draw_triangle_texel(int x, int y, vec4_t point_a, vec4_t point_b, ve
     interpolated_v /= interpolated_reciprocal_w;
 
     // Map the UV coordinate to the full texture width and height
-    int tex_x = abs((int)(interpolated_u * texture.width)) % texture.width;
-    int tex_y = abs((int)(interpolated_v * texture.height)) % texture.height;
+    int tex_x = abs((int)(interpolated_u * texture->width)) % texture->width;
+    int tex_y = abs((int)(interpolated_v * texture->height)) % texture->height;
 
     // Adjust 1/w so the pixels that are closer to the camera have smaller values
     interpolated_reciprocal_w = 1.0 - interpolated_reciprocal_w;
@@ -302,7 +320,8 @@ inline void draw_triangle_texel(int x, int y, vec4_t point_a, vec4_t point_b, ve
     // Only draw the pixel if the depth value is less than the one previously stored in the z-buffer
     if (interpolated_reciprocal_w < display.z_buffer[(display.width * y) + x])
     {
-        int color = light_apply_intensity(texture.data[(texture.width * tex_y) + tex_x], light_intensity);
+        // int color = light_apply_intensity(texture.data[(texture.width * tex_y) + tex_x], light_intensity);
+        int color = light_apply_intensity(texture->texture_buffer[(texture->width * tex_y) + tex_x], light_intensity);
 
         // Draw a pixel at position (x,y) with the color that comes from the mapped texture
         draw_pixel(x, y, color);

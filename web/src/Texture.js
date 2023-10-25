@@ -1,16 +1,21 @@
 import Resources from "./Resources.js";
+import WASM from "./WASM.js";
 
 export default class Texture {
   name = null;
+  id = -1;
   #image_data = null;
   width;
   height;
-  constructor(texture_name) {
-    this.name = texture_name;
-    const image = Resources.get_image(texture_name);
-    this.width = image.width;
-    this.height = image.height;
-    this.#image_data = image;
+  constructor(image_data, buffer, id) {
+    this.name = image_data.name;
+    this.id = id;
+    // const image = Resources.get_image(texture_name);
+    this.width = image_data.width;
+    this.height = image_data.height;
+    this.#image_data = image_data;
+
+    new Uint8ClampedArray(WASM.mem, buffer, this.length).set(this.data);
   }
 
   get length() {

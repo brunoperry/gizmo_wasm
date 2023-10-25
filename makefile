@@ -6,7 +6,7 @@ clean:
 build:
 	$(CC) \
 	--target=wasm32-unknown-wasi \
-	--sysroot /Users/brunoperry/libs/wasi-sdk-20.0/share/wasi-sysroot \
+	--sysroot /Users/brunoperry/libs/wasi-libc \
 	-nostartfiles \
 	-mbulk-memory \
 	-Wall \

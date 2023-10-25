@@ -19,9 +19,10 @@ typedef struct
     float *r_buffer;
     float *s_buffer;
 
-    unsigned int *t_buffer;
-    int t_width;
-    int t_height;
+    // unsigned int *t_buffer;
+    int textureID;
+    // int t_width;
+    // int t_height;
 
 } object3d_to_build_t;
 
@@ -31,8 +32,9 @@ typedef struct
     float *rotation;
     float *scale;
 
-    texture_t texture;
+    // texture_t texture;
     mesh_t mesh;
+    int textureID;
 
 } object3d_t;
 

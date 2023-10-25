@@ -54,6 +54,9 @@ export default class WASM {
   static set_color_buffer(width, height) {
     return WASM.#c_module.set_color_buffer(width, height);
   }
+  static set_texture_buffer(width, height, id) {
+    return WASM.#c_module.set_texture_buffer(width, height, id);
+  }
   static set_render_mode_buffer() {
     return WASM.#c_module.set_render_mode_buffer();
   }
@@ -74,19 +77,18 @@ export default class WASM {
       obj3D.vertices.length,
       obj3D.uvs.length,
       obj3D.normals.length,
-      obj3D.texture.width,
-      obj3D.texture.height
+      obj3D.texture.id
     );
     const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
     obj3D.initialize(buffers);
     WASM.#c_module.obj_done();
   }
-  
+
   static apply_filter(filter) {
-    switch(filter) {
+    switch (filter) {
       case "barrel":
         WASM.#c_module.apply_filter(0);
-      break;
+        break;
       case "fisheye":
         WASM.#c_module.apply_filter(1);
         break;

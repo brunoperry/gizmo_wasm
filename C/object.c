@@ -9,9 +9,7 @@ inline object3d_t *obj3d_build(object3d_to_build_t *obj3d_to_build)
     obj3d->position = obj3d_to_build->p_buffer;
     obj3d->rotation = obj3d_to_build->r_buffer;
     obj3d->scale = obj3d_to_build->s_buffer;
-    obj3d->texture.data = obj3d_to_build->t_buffer;
-    obj3d->texture.width = obj3d_to_build->t_width;
-    obj3d->texture.height = obj3d_to_build->t_height;
+    obj3d->textureID = obj3d_to_build->textureID;
 
     obj3d->mesh.v_num = v_len / 3;
     obj3d->mesh.num_triangles = (v_len / 3) / 3;

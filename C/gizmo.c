@@ -23,7 +23,10 @@ EXPORT unsigned int *set_render_mode_buffer()
 {
     return set_render_mode();
 }
-
+EXPORT unsigned int *set_texture_buffer(int width, int height, int id)
+{
+    return add_texture(width, height, id);
+}
 static camera_t camera_to_build;
 static light_t light_to_build;
 
@@ -69,7 +72,7 @@ EXPORT unsigned int *set_light_buffer()
 
     return light_buffer;
 }
-EXPORT unsigned int *set_object_buffer(int v_length, int uv_length, int n_length, int t_width, int t_height)
+EXPORT unsigned int *set_object_buffer(int v_length, int uv_length, int n_length, int textureID)
 {
     unsigned int *obj_buffer = malloc(7 * sizeof(int));
 
@@ -82,10 +85,7 @@ EXPORT unsigned int *set_object_buffer(int v_length, int uv_length, int n_length
     object_to_build.n_buffer = malloc(n_length * sizeof(float));
     object_to_build.n_buffer_len = n_length;
 
-    int length = t_width * t_height;
-    object_to_build.t_buffer = malloc(length * sizeof(int));
-    object_to_build.t_width = t_width;
-    object_to_build.t_height = t_height;
+    object_to_build.textureID = textureID;
 
     object_to_build.p_buffer = malloc(3 * sizeof(float));
     object_to_build.r_buffer = malloc(3 * sizeof(float));
@@ -97,7 +97,7 @@ EXPORT unsigned int *set_object_buffer(int v_length, int uv_length, int n_length
     obj_buffer[3] = (unsigned int)object_to_build.p_buffer;
     obj_buffer[4] = (unsigned int)object_to_build.r_buffer;
     obj_buffer[5] = (unsigned int)object_to_build.s_buffer;
-    obj_buffer[6] = (unsigned int)object_to_build.t_buffer;
+    obj_buffer[6] = (unsigned int)object_to_build.textureID;
 
     return obj_buffer;
 }

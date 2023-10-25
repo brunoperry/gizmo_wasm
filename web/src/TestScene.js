@@ -12,18 +12,16 @@ export default class TestScene extends Scene {
     this.#obj = Resources.get_object("city01");
     this.#obj2 = Resources.get_object("city01");
     this.#obj3 = Resources.get_object("city01");
-    // this.#obj2 = Resources.get_object("surfer");
 
     this.add_obj3d(this.#obj);
     this.add_obj3d(this.#obj2);
     this.add_obj3d(this.#obj3);
 
-    this.#obj2.position = vec3(0, 1, 0);
+    this.#obj2.position = vec3(0, 2, 0);
     this.#obj2.rotation = vec3(0, 90, 0);
 
-    // this.#obj3.position = vec3(0, 2, 0);
-    // this.#obj3.rotation = vec3(0, -90, 0);
-
+    this.#obj3.position = vec3(0, 1, 0);
+    this.#obj3.rotation = vec3(0, -90, 0);
 
     this.camera.position = vec3(0, 0, -5);
   }

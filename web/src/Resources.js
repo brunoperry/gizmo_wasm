@@ -1,10 +1,11 @@
 import AudioTrack from "./AudioTrack.js";
 import Object3D from "./Object3D.js";
 import Texture from "./Texture.js";
+import WASM from "./WASM.js";
 
 export default class Resources {
   static objects = [];
-  static images = [];
+  static textures = [];
   static audios = [];
   static splash = null;
   static main_audio = null;
@@ -16,7 +17,11 @@ export default class Resources {
     for (let i = 0; i < raw_data.images.length; i++) {
       if (listener) listener(state, `loading image: ${raw_data.images[i].name}`);
       const image_data = await Resources.#load_image_file(raw_data.images[i]);
-      Resources.images.push(image_data);
+
+      const t_buffer = WASM.set_texture_buffer(image_data.width, image_data.height, i);
+
+      const texture = new Texture(image_data, t_buffer, i);
+      Resources.textures.push(texture);
     }
 
     for (let i = 0; i < raw_data.meshes.length; i++) {
@@ -33,7 +38,7 @@ export default class Resources {
           obj_data = await Resources.#load_fbx_file(raw_data.meshes[i].url);
           break;
       }
-      obj_data.texture = new Texture(raw_data.meshes[i].texture);
+      obj_data.texture = Resources.get_image(raw_data.meshes[i].texture);
       Resources.objects.push(obj_data);
     }
 
@@ -51,10 +56,11 @@ export default class Resources {
   }
 
   static get_object(obj_name) {
-    return Resources.objects.find((obj) => obj.name === obj_name);
+    const obj = Resources.objects.find((obj) => obj.name === obj_name).clone();
+    return obj;
   }
   static get_image(image_name) {
-    return Resources.images.find((image) => image.name === image_name);
+    return Resources.textures.find((image) => image.name === image_name);
   }
   static async #load_json_data(data_path) {
     const req = await fetch(data_path);

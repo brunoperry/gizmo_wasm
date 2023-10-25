@@ -39,7 +39,6 @@ export default class AudioTrack {
 
     this.#fbc = new Uint8Array(this.#analizer.frequencyBinCount);
 
-    console.log(this.#fbc[0]);
     if (this.name === "main") {
       this.volume = 0;
     }
