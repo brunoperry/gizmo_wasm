@@ -141,8 +141,8 @@ inline void draw_textured_triangle(int x0, int y0, float z0, float w0, float u0,
     {
         for (int y = y0; y <= y1; y++)
         {
-            int x_start = x1 + (y - y1) * inv_slope_1;
-            int x_end = x0 + (y - y0) * inv_slope_2;
+            int x_start = x1 + (y - y1) * inv_slope_1 + 1;
+            int x_end = x0 + (y - y0) * inv_slope_2 + 1;
 
             if (x_end < x_start)
             {
@@ -171,8 +171,8 @@ inline void draw_textured_triangle(int x0, int y0, float z0, float w0, float u0,
     {
         for (int y = y1; y <= y2; y++)
         {
-            int x_start = x1 + (y - y1) * inv_slope_1;
-            int x_end = x0 + (y - y0) * inv_slope_2;
+            int x_start = x1 + (y - y1) * inv_slope_1 + 1;
+            int x_end = x0 + (y - y0) * inv_slope_2 + 1;
 
             if (x_end < x_start)
             {
@@ -363,9 +363,9 @@ inline void draw_triangle_pixel(int x, int y, int color, vec4_t point_a, vec4_t 
 }
 inline void draw_pixel(int x, int y, uint32_t color)
 {
-    if (x >= 0 && x < 320 && y >= 0 && y < 240)
+    if (x >= 0 && x < display.width && y >= 0 && y < display.height)
     {
-        uint32_t *target_pixel = &display.color_buffer[(320 * y) + x];
+        uint32_t *target_pixel = &display.color_buffer[(display.width * y) + x];
 
         // Extract the alpha, red, green, and blue components of the colors
         uint8_t alpha_new = (color >> 24);
