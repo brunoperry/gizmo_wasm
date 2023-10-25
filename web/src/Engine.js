@@ -40,7 +40,7 @@ export default class Engine {
     InputController.initialize();
 
     this.#scene = new scene();
-    this.#audio = new AudioController();
+    // this.#audio = new AudioController();
     this.#display = new Display();
 
     document.addEventListener("pointerlockchange", (e) => {

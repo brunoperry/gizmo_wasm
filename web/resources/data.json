@@ -9,31 +9,6 @@
       "name": "bowl",
       "url": "./resources/meshes/bowl.obj",
       "texture": "bowl"
-    },
-    {
-      "name": "triangle",
-      "url": "./resources/meshes/triangle.obj",
-      "texture": "null"
-    },
-    {
-      "name": "city01",
-      "url": "./resources/meshes/city01.obj",
-      "texture": "citymap"
-    },
-    {
-      "name": "city02",
-      "url": "./resources/meshes/city02.obj",
-      "texture": "citymap"
-    },
-    {
-      "name": "antenna01",
-      "url": "./resources/meshes/antenna01.obj",
-      "texture": "citymap"
-    },
-    {
-      "name": "billboard01",
-      "url": "./resources/meshes/billboard01.obj",
-      "texture": "billboards"
     }
   ],
   "images": [
@@ -46,46 +21,9 @@
       "url": "./resources/images/sphere.png"
     },
     {
-      "name": "citymap",
-      "url": "./resources/images/city_colors.png"
-    },
-    {
-      "name": "billboards",
-      "url": "./resources/images/billboards.jpg"
-    },
-    {
       "name": "null",
       "url": "./resources/images/texture_null.png"
     }
   ],
-  "audios": [
-    {
-      "name": "main",
-      "url": "./resources/audios/main.mp3"
-    },
-    {
-      "name": "a",
-      "url": "./resources/audios/a.mp3"
-    },
-    {
-      "name": "b",
-      "url": "./resources/audios/b.mp3"
-    },
-    {
-      "name": "c",
-      "url": "./resources/audios/c.mp3"
-    },
-    {
-      "name": "d",
-      "url": "./resources/audios/d.mp3"
-    },
-    {
-      "name": "e",
-      "url": "./resources/audios/e.mp3"
-    },
-    {
-      "name": "f",
-      "url": "./resources/audios/f.mp3"
-    }
-  ]
+  "audios": []
 }

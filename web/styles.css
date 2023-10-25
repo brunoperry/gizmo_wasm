@@ -198,6 +198,7 @@ button:active {
 }
 
 #freqs {
+  visibility: hidden;
   grid-area: freqs;
   display: flex;
   justify-self: stretch;
@@ -208,6 +209,7 @@ button:active {
 }
 
 #tracks {
+  visibility: hidden;
   grid-area: tracks;
   display: flex;
   flex: 1;
@@ -261,6 +263,7 @@ button:active {
 }
 
 #filters {
+  visibility: hidden;
   grid-area: filters;
   display: flex;
   gap: var(--gap);
