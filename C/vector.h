@@ -2,74 +2,35 @@
 #define VECTOR_H
 
 #include <math.h>
-#include "wasm.h"
 
-//////////////////////////////////////
-// Texture coordinates Operations
-//////////////////////////////////////
-typedef struct
-{
-    float u;
-    float v;
-} tex2_t;
-
-tex2_t tex2_clone(tex2_t *t);
-
-////////////////////////////////////////////////////////////////////////////////
-// Vector 2 Operations
-////////////////////////////////////////////////////////////////////////////////
-typedef struct
-{
-    float x, y;
-} vec2_t;
-
-float vec2_length(vec2_t v);
-vec2_t vec2_add(vec2_t a, vec2_t b);
-vec2_t vec2_sub(vec2_t a, vec2_t b);
-vec2_t vec2_mul(vec2_t v, float factor);
-vec2_t vec2_div(vec2_t v, float factor);
-void vec2_normalize(vec2_t *v);
-
-//////////////////////////////////////
-// Vector 3D Operations
-//////////////////////////////////////
 typedef struct
 {
     float x, y, z;
 } vec3_t;
-vec3_t vec3_new(float x, float y, float z);
-float vec3_length(vec3_t v);
-vec3_t vec3_add(vec3_t a, vec3_t b);
-vec3_t vec3_sub(vec3_t a, vec3_t b);
-vec3_t vec3_mul(vec3_t v, float factor);
-vec3_t vec3_div(vec3_t v, float factor);
-vec3_t vec3_cross(vec3_t a, vec3_t b);
-float vec3_dot(vec3_t a, vec3_t b);
-void vec3_normalize(vec3_t *v);
-void vec3_negate(vec3_t *v);
-vec3_t vec3_rotate_x(vec3_t v, float angle);
-vec3_t vec3_rotate_y(vec3_t v, float angle);
-vec3_t vec3_rotate_z(vec3_t v, float angle);
-vec3_t vec3_clone(vec3_t *v);
 
-void vec3_log(vec3_t vec);
+static inline vec3_t vec3_new(float x, float y, float z) { return (vec3_t){x, y, z}; }
+static inline vec3_t vec3_from_ptr(const float *p) { return (vec3_t){p[0], p[1], p[2]}; }
+static inline vec3_t vec3_add(vec3_t a, vec3_t b) { return (vec3_t){a.x + b.x, a.y + b.y, a.z + b.z}; }
+static inline vec3_t vec3_sub(vec3_t a, vec3_t b) { return (vec3_t){a.x - b.x, a.y - b.y, a.z - b.z}; }
+static inline vec3_t vec3_mul(vec3_t v, float f) { return (vec3_t){v.x * f, v.y * f, v.z * f}; }
+static inline float vec3_dot(vec3_t a, vec3_t b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+static inline float vec3_length(vec3_t v) { return sqrtf(vec3_dot(v, v)); }
 
-//////////////////////////////////////
-// Vector 4D Operations
-//////////////////////////////////////
-typedef struct
+static inline vec3_t vec3_cross(vec3_t a, vec3_t b)
 {
-    float x, y, z, w;
-} vec4_t;
-vec4_t vec4_clone(vec4_t *v);
-vec4_t vec4_new(float x, float y, float z, float w);
-void vec4_log(vec4_t vec);
+    return (vec3_t){
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x};
+}
 
-///////////////////////////////////////////////////////////////////////////////
-// Vector conversion funcs
-///////////////////////////////////////////////////////////////////////////////
-vec4_t vec4_from_vec3(vec3_t v);
-vec3_t vec3_from_vec4(vec4_t v);
-vec2_t vec2_from_vec4(vec4_t v);
+// Returns `fallback` when v has (almost) zero length instead of producing NaNs.
+static inline vec3_t vec3_normalize_or(vec3_t v, vec3_t fallback)
+{
+    float len_sq = vec3_dot(v, v);
+    if (len_sq < 1e-12f)
+        return fallback;
+    return vec3_mul(v, 1.0f / sqrtf(len_sq));
+}
 
 #endif

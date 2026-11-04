@@ -1,19 +1,13 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "stdlib.h"
-#include "wasm.h"
-
+// Directional light. `direction` points to a vec3 written by javascript
+// (see Light3D.js); it does not need to be normalized.
 typedef struct
 {
     float *direction;
-    int color;
 } light_t;
 
-static light_t *light3d;
-
-light_t *light_build(light_t *light_to_build);
-int light_apply_intensity(int original_color, float percentage_factor);
-int light_apply_ambient(light_t light, int color);
+extern light_t light3d;
 
 #endif

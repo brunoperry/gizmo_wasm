@@ -4,20 +4,15 @@ export default class WASM {
   constructor() {}
 
   static async initialize() {
-    const { instance } = await WebAssembly.instantiateStreaming(
-      fetch("./src/gizmo.wasm"),
-      {
-        js: {
-          console_log: WASM.wasm_log,
-          info_log: WASM.wasm_info,
-          float_log: WASM.float_log,
-          int_log: WASM.int_log,
-          vec3_log: WASM.vec3_log,
-          vec4_log: WASM.vec4_log,
-          mat4_log: WASM.mat4_log,
-        },
-      }
-    );
+    const { instance } = await WebAssembly.instantiateStreaming(fetch("./src/gizmo.wasm"), {
+      js: {
+        console_log: WASM.wasm_log,
+        info_log: WASM.wasm_info,
+        float_log: WASM.float_log,
+        int_log: WASM.int_log,
+        vec3_log: WASM.vec3_log,
+      },
+    });
     WASM.#c_module = instance.exports;
   }
 
@@ -40,11 +35,11 @@ export default class WASM {
   static vec3_log(x, y, z) {
     console.log("vec3", `x:${x}, y:${y}, z:${z}`);
   }
-  static vec4_log(x, y, z, w) {
-    console.log("vec4", `x:${x}, y:${y}, z:${z}, w:${w}`);
-  }
-  static mat4_log(x, y, z) {
-    console.log("vec3", `x:${x},y:${y},z:${z}`);
+
+  // Every set_* in C returns 0 when it runs out of slots or memory.
+  static #check(pointer, what) {
+    if (!pointer) throw new Error(`gizmo.wasm: could not allocate ${what}`);
+    return pointer;
   }
 
   static update() {
@@ -52,32 +47,35 @@ export default class WASM {
   }
 
   static set_color_buffer(width, height) {
-    return WASM.#c_module.set_color_buffer(width, height);
+    return WASM.#check(WASM.#c_module.set_color_buffer(width, height), "color buffer");
   }
   static set_texture_buffer(width, height, id) {
-    return WASM.#c_module.set_texture_buffer(width, height, id);
+    return WASM.#check(WASM.#c_module.set_texture_buffer(width, height, id), "texture");
   }
   static set_render_mode_buffer() {
-    return WASM.#c_module.set_render_mode_buffer();
+    return WASM.#check(WASM.#c_module.set_render_mode_buffer(), "render mode");
   }
   static set_camera_buffer(camera) {
-    const cam_buffer = WASM.#c_module.set_camera_buffer();
+    const cam_buffer = WASM.#check(WASM.#c_module.set_camera_buffer(), "camera");
     const buffers = new Int32Array(WASM.mem, cam_buffer, 9);
     camera.initialize(buffers);
     WASM.#c_module.cam_done();
   }
   static set_light_buffer(light) {
-    const light_buffer = WASM.#c_module.set_light_buffer();
+    const light_buffer = WASM.#check(WASM.#c_module.set_light_buffer(), "light");
     const buffers = new Int32Array(WASM.mem, light_buffer, 1);
     light.initialize(buffers);
     WASM.#c_module.light_done();
   }
   static set_object_buffer(obj3D) {
-    const obj_buffer = WASM.#c_module.set_object_buffer(
-      obj3D.vertices.length,
-      obj3D.uvs.length,
-      obj3D.normals.length,
-      obj3D.texture.id
+    const obj_buffer = WASM.#check(
+      WASM.#c_module.set_object_buffer(
+        obj3D.vertices.length,
+        obj3D.uvs.length,
+        obj3D.normals.length,
+        obj3D.texture ? obj3D.texture.id : -1
+      ),
+      `object ${obj3D.name}`
     );
     const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
     obj3D.initialize(buffers);

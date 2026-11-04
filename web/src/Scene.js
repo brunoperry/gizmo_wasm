@@ -30,7 +30,7 @@ export default class Scene {
     WASM.set_light_buffer(light);
   }
 
-  update() {
-    this.camera.update();
+  update(delta) {
+    this.camera.update(delta);
   }
 }

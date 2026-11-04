@@ -23,8 +23,6 @@ export default class Object3D {
     this.#r_buffer = buffers[4];
     this.#s_buffer = buffers[5];
 
-    new Int8Array(WASM.mem, buffers[6], 1).set(this.texture.id);
-
     this.position = vec3(0, 0, 0);
     this.rotation = vec3(0, 0, 0);
     this.scale = vec3(1, 1, 1);

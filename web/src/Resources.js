@@ -181,25 +181,22 @@ export default class Resources {
           normals.push(parseFloat(tokens[2]));
           normals.push(parseFloat(tokens[3]));
           break;
-        case "f":
-          for (let j = 0; j < tokens.length - 3; j++) {
-            const tk1 = tokens[1].split("/");
-            const tk2 = tokens[2].split("/");
-            const tk3 = tokens[3].split("/");
-
-            faces.push(parseInt(tk1[0] - 1));
-            faces.push(parseInt(tk1[1] - 1));
-            faces.push(parseInt(tk1[2] - 1));
-
-            faces.push(parseInt(tk2[0] - 1));
-            faces.push(parseInt(tk2[1] - 1));
-            faces.push(parseInt(tk2[2] - 1));
-
-            faces.push(parseInt(tk3[0] - 1));
-            faces.push(parseInt(tk3[1] - 1));
-            faces.push(parseInt(tk3[2] - 1));
+        case "f": {
+          // Accepts v, v/vt, v//vn and v/vt/vn, negative (relative) indices,
+          // and any convex polygon (split into a triangle fan).
+          const counts = [vertices.length / 3, uvs.length / 2, normals.length / 3];
+          const corner = (token) =>
+            [0, 1, 2].map((k) => {
+              const index = parseInt(token.split("/")[k]);
+              if (Number.isNaN(index)) return -1;
+              return index < 0 ? counts[k] + index : index - 1;
+            });
+          const corners = tokens.slice(1).map(corner);
+          for (let j = 1; j < corners.length - 1; j++) {
+            faces.push(...corners[0], ...corners[j], ...corners[j + 1]);
           }
           break;
+        }
         case "g":
           name = tokens[1];
           break;
@@ -247,58 +244,23 @@ export default class Resources {
     return buffer;
   }
 
+  // Expands indexed faces (v, uv, normal index triplets) into flat
+  // per-triangle arrays. Missing/invalid indices produce zeros.
   static #make_fan_strip(mesh_data) {
-    let vecs = new Array(mesh_data.vertices.length / 3);
-    let v_counter = 0;
-    for (let i = 0; i < mesh_data.vertices.length; i += 3) {
-      vecs[v_counter] = [
-        mesh_data.vertices[i],
-        mesh_data.vertices[i + 1],
-        mesh_data.vertices[i + 2],
-      ];
-      v_counter++;
-    }
+    const expand = (source, size, offset) => {
+      const out = new Float32Array((mesh_data.faces.length / 3) * size);
+      for (let i = 0, o = 0; i < mesh_data.faces.length; i += 3, o += size) {
+        const index = mesh_data.faces[i + offset];
+        if (index < 0 || (index + 1) * size > source.length) continue;
+        for (let k = 0; k < size; k++) out[o + k] = source[index * size + k];
+      }
+      return out;
+    };
 
-    let fanned_vecs = [];
-    for (let i = 0; i < mesh_data.faces.length; i += 3) {
-      const a_index = mesh_data.faces[i];
-      fanned_vecs.push(...vecs[a_index]);
-    }
-
-    let uvs = new Array(mesh_data.uvs.length / 2);
-    let uv_counter = 0;
-    for (let i = 0; i < mesh_data.uvs.length; i += 2) {
-      uvs[uv_counter] = [mesh_data.uvs[i], mesh_data.uvs[i + 1]];
-      uv_counter++;
-    }
-
-    let fanned_uvs = [];
-    for (let i = 0; i < mesh_data.faces.length; i += 3) {
-      const a_index = mesh_data.faces[i + 1];
-      fanned_uvs.push(...uvs[a_index]);
-    }
-
-    let normals = new Array(mesh_data.normals.length / 3);
-
-    let normal_counter = 0;
-    for (let i = 0; i < mesh_data.normals.length; i += 3) {
-      normals[normal_counter] = [
-        mesh_data.normals[i],
-        mesh_data.normals[i + 1],
-        mesh_data.normals[i + 2],
-      ];
-      normal_counter++;
-    }
-    let fanned_normals = [];
-    for (let i = 0; i < mesh_data.faces.length; i += 3) {
-      const a_index = mesh_data.faces[i + 2];
-
-      fanned_normals.push(...normals[a_index]);
-    }
     return new Object3D({
-      vertices: fanned_vecs,
-      uvs: fanned_uvs,
-      normals: fanned_normals,
+      vertices: expand(mesh_data.vertices, 3, 0),
+      uvs: expand(mesh_data.uvs, 2, 1),
+      normals: expand(mesh_data.normals, 3, 2),
       name: mesh_data.name,
       texture: mesh_data.texture,
     });

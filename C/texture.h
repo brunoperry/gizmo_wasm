@@ -1,28 +1,23 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
-#include "vector.h"
-#include "mesh.h"
-#include "light3d.h"
-#include "wasm.h"
+#include <stdint.h>
 
+#define MAX_TEXTURES 64
+
+// RGBA8 pixels as written by canvas getImageData (0xAABBGGRR as uint32).
 typedef struct
 {
     int width;
     int height;
-    unsigned int *texture_buffer;
-    float light_intensity;
-
+    int is_pot;  // both sides are powers of two -> wrap with masks
+    int w_shift; // log2(width) when is_pot
+    uint32_t *pixels;
 } texture_t;
 
-typedef struct
-{
-    int width;
-    int height;
-    double *depth_buffer;
-    unsigned int *frame_buffer;
-} rendertarget_t;
-
-double get_depth(vec3_t point, vec3_t light_position, vec3_t light_direction);
+// Returns the new texture, or NULL if out of slots/memory.
+texture_t *texture_create(int width, int height);
+// Returns NULL for invalid ids.
+texture_t *texture_get(int id);
 
 #endif

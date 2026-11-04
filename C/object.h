@@ -1,43 +1,25 @@
 #ifndef OBJECT3D_H
 #define OBJECT3D_H
 
-#include "stdlib.h"
-#include "texture.h"
-#include "mesh.h"
+#define MAX_OBJECTS 256
 
+// Triangle soup written by javascript (see Object3D.js):
+//   vertices: 9 floats per triangle (x,y,z * 3)
+//   uvs:      6 floats per triangle (u,v * 3)
+// position/rotation/scale are vec3s javascript updates every frame
+// (rotation in radians).
 typedef struct
 {
-    float *v_buffer;
-    float *uv_buffer;
-    float *n_buffer;
+    float *vertices;
+    float *uvs;
+    float *normals; // uploaded by JS, unused for flat shading
+    int num_triangles;
 
-    int v_buffer_len;
-    int uv_buffer_len;
-    int n_buffer_len;
-
-    float *p_buffer;
-    float *r_buffer;
-    float *s_buffer;
-
-    // unsigned int *t_buffer;
-    int textureID;
-    // int t_width;
-    // int t_height;
-
-} object3d_to_build_t;
-
-typedef struct
-{
     float *position;
     float *rotation;
     float *scale;
 
-    // texture_t texture;
-    mesh_t mesh;
-    int textureID;
-
+    int texture_id;
 } object3d_t;
-
-object3d_t *obj3d_build(object3d_to_build_t *obj3d_to_build);
 
 #endif

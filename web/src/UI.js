@@ -207,11 +207,18 @@ export class UI {
   }
 
   update(data) {
-    this.#fps_label.innerText = data.fps;
-    this.#verts_label.innerText = data.verts;
-    this.#tris_label.innerText = data.tris;
+    // Called every frame: writing innerText forces style/layout work, so
+    // only write when the value actually changed.
+    UI.#set_text(this.#fps_label, data.fps);
+    UI.#set_text(this.#verts_label, data.verts);
+    UI.#set_text(this.#tris_label, data.tris);
 
     this.updateFreqCanvas();
+  }
+
+  static #set_text(element, value) {
+    const text = String(value);
+    if (element.textContent !== text) element.textContent = text;
   }
 
   set_scene_name(name, subtitle = null) {

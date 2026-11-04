@@ -44,8 +44,6 @@ export default class InputController {
     let timerID = null;
     const cleanUp = () => {
       InputController.DWheel = 0;
-      InputController.MouseDX = 0;
-      InputController.MouseDY = 0;
     };
     document.addEventListener("mousedown", (e) => {
       InputController.Buttons[e.which - 1] = true;
@@ -59,14 +57,9 @@ export default class InputController {
     });
 
     document.addEventListener("mousemove", (e) => {
-      // InputController.MouseX = e.clientX;
-      // InputController.MouseY = e.clientY;
-
-      // console.log(e);
-      InputController.MouseDX = e.movementX;
-      InputController.MouseDY = e.movementY;
-      if (timerID) clearTimeout(timerID);
-      timerID = setTimeout(cleanUp, 10);
+      // Accumulate: several mousemove events can fire between two frames.
+      InputController.MouseDX += e.movementX;
+      InputController.MouseDY += e.movementY;
     });
 
     document.addEventListener(
@@ -78,6 +71,17 @@ export default class InputController {
       },
       { passive: true }
     );
+  }
+
+  /**
+   * Returns the mouse movement since the last call and resets it.
+   * Call once per frame.
+   */
+  static consumeMouseDelta() {
+    const delta = { dx: InputController.MouseDX, dy: InputController.MouseDY };
+    InputController.MouseDX = 0;
+    InputController.MouseDY = 0;
+    return delta;
   }
 
   static getValues() {

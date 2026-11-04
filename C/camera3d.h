@@ -1,68 +1,38 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "stdlib.h"
-#include <math.h>
-#include "mesh.h"
-#include "vector.h"
 #include "matrix.h"
-#include "light3d.h"
-#include "utils.h"
 
-#define NUM_PLANES 6
-
-#define MAX_NUM_POLY_VERTICES 10
-#define MAX_NUM_POLY_TRIANGLES 10
-
-enum
-{
-    LEFT_FRUSTUM_PLANE,
-    RIGHT_FRUSTUM_PLANE,
-    TOP_FRUSTUM_PLANE,
-    BOTTOM_FRUSTUM_PLANE,
-    NEAR_FRUSTUM_PLANE,
-    FAR_FRUSTUM_PLANE
-};
-
+// Camera parameters. Every field points to memory that javascript writes
+// directly (see Camera3D.js), so changes are picked up on the next frame.
 typedef struct
 {
-    vec3_t point;
-    vec3_t normal;
-} plane_t;
-
-typedef struct
-{
-    vec3_t vertices[MAX_NUM_POLY_VERTICES];
-    tex2_t texcoords[MAX_NUM_POLY_VERTICES];
-    int num_vertices;
-} polygon_t;
-
-typedef struct
-{
-    float *aspect_x;
-    float *aspect_y;
-    float *fov_x;
-    float *fov_y;
-
+    float *aspect_x; // width / height
+    float *aspect_y; // height / width
+    float *fov_x;    // radians (unused: derived from fov_y + aspect)
+    float *fov_y;    // radians
     float *z_near;
     float *z_far;
-
-    float *position;
-    float *direction;
-    float *up;
-
-    mat4_t proj_matrix;
-    plane_t frustum_planes[NUM_PLANES];
-
+    float *position;  // vec3
+    float *direction; // vec3, does not need to be normalized
+    float *up;        // vec3
 } camera_t;
-static camera_t *camera3d;
 
-camera_t *camera_build(camera_t *cam_to_build);
-mat4_t cam_view();
-void init_frustum_planes();
-polygon_t polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, triangle_t triangle);
-void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles);
-void clip_polygon_against_plane(polygon_t *polygon, int plane);
-void clip_polygon(polygon_t *polygon);
+// Everything the renderer needs for one frame, derived from camera_t.
+//
+// View space: x = right, y = up, z = forward (depth). The world is
+// right-handed (y up, right = direction x up), matching Camera3D.js.
+typedef struct
+{
+    mat4_t view;
+    float proj_x; // x_ndc = x * proj_x / z
+    float proj_y; // y_ndc = y * proj_y / z
+    float z_near;
+    float z_far;
+} camera_frame_t;
+
+extern camera_t camera3d;
+
+void camera_frame(camera_frame_t *out);
 
 #endif

@@ -9,8 +9,9 @@ import {
 } from "./math.js";
 import InputController from "./InputController.js";
 export default class Camera3D {
-  #MOVEMENT_SPEED = 0.1;
-  #ROTATE_SPEED = 0.002;
+  #MOVEMENT_SPEED = 6; // units per second
+  #ROTATE_SPEED = 0.002; // radians per mouse pixel
+  #MAX_PITCH_Y = 0.99; // |direction.y| limit, avoids flipping over the poles
   #UP = vec3(0, 1, 0);
   #cam_buffer;
 
@@ -47,52 +48,39 @@ export default class Camera3D {
 
   update(delta) {
     this.#mouseUpdate();
-    this.#checkInputs();
+    this.#checkInputs(delta);
   }
   #mouseUpdate() {
-    const rotateY = mat4_from_rotation(
-      -InputController.MouseDX * this.#ROTATE_SPEED,
-      this.#UP
-    );
+    const { dx, dy } = InputController.consumeMouseDelta();
+    if (dx === 0 && dy === 0) return;
 
-    const toRotateAround = vec3_cross(this.#dir, this.#UP);
-    const rotateX = mat4_from_rotation(
-      InputController.MouseDY * this.#ROTATE_SPEED,
-      toRotateAround
-    );
+    // Yaw: mouse right turns right.
+    const rotateY = mat4_from_rotation(-dx * this.#ROTATE_SPEED, this.#UP);
+    let dir = vec3_transform_mat4(this.#dir, rotateY);
 
-    this.#dir = vec3_transform_mat4(this.#dir, rotateX);
-    this.#dir = vec3_transform_mat4(this.#dir, rotateY);
+    // Pitch: mouse down looks down. Skipped near straight up/down.
+    const right = vec3_cross(dir, this.#UP);
+    const rotateX = mat4_from_rotation(-dy * this.#ROTATE_SPEED, right);
+    const pitched = rotateX && vec3_transform_mat4(dir, rotateX);
+    if (pitched && Math.abs(pitched.y) < this.#MAX_PITCH_Y) dir = pitched;
 
-    this.direction = vec3(this.#dir.x, this.#dir.y, this.#dir.z);
+    this.direction = dir;
   }
-  #checkInputs() {
+  #checkInputs(delta) {
+    const step = this.#MOVEMENT_SPEED * delta;
+    const right = vec3_cross(this.#dir, this.#UP);
+
     if (InputController.getKey(InputController.Key.W)) {
-      this.#move_forward();
+      this.position = vec3_scale_and_add(this.#pos, this.#dir, step);
     } else if (InputController.getKey(InputController.Key.S)) {
-      this.#move_backward();
+      this.position = vec3_scale_and_add(this.#pos, this.#dir, -step);
     }
 
     if (InputController.getKey(InputController.Key.A)) {
-      this.#strafe_left();
+      this.position = vec3_scale_and_add(this.#pos, right, -step);
     } else if (InputController.getKey(InputController.Key.D)) {
-      this.#strafe_right();
+      this.position = vec3_scale_and_add(this.#pos, right, step);
     }
-  }
-
-  #move_forward() {
-    this.position = vec3_scale_and_add(this.#pos, this.#dir, this.#MOVEMENT_SPEED);
-  }
-  #move_backward() {
-    this.position = vec3_scale_and_add(this.#pos, this.#dir, -this.#MOVEMENT_SPEED);
-  }
-  #strafe_left() {
-    const strafeDirection = vec3_cross(this.#dir, this.#UP);
-    this.position = vec3_scale_and_add(this.#pos, strafeDirection, -this.#MOVEMENT_SPEED);
-  }
-  #strafe_right() {
-    const strafeDirection = vec3_cross(this.#dir, this.#UP);
-    this.position = vec3_scale_and_add(this.#pos, strafeDirection, this.#MOVEMENT_SPEED);
   }
 
   get position() {
@@ -130,7 +118,7 @@ export default class Camera3D {
     return this.fov_x;
   }
   get fov_x() {
-    return new Uint32Array(WASM.mem, this.#cam_buffer[2], 1)[0];
+    return new Float32Array(WASM.mem, this.#cam_buffer[2], 1)[0];
   }
   set fov_x(val) {
     const fov_y = val * (Math.PI / 180);
@@ -138,7 +126,7 @@ export default class Camera3D {
     new Float32Array(WASM.mem, this.#cam_buffer[2], 1).set([fov_x]);
   }
   get fov_y() {
-    return new Uint32Array(WASM.mem, this.#cam_buffer[3], 1)[0];
+    return new Float32Array(WASM.mem, this.#cam_buffer[3], 1)[0];
   }
   set fov_y(val) {
     const fov_y = val * (Math.PI / 180);

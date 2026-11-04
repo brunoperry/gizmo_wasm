@@ -11,17 +11,18 @@ export default class TestScene extends Scene {
     this.#obj = Resources.get_object("surfer");
     this.#obj2 = Resources.get_object("bowl");
 
-
     this.add_obj3d(this.#obj);
-    this.add_obj3d(this.#obj2);
+    // this.add_obj3d(this.#obj2);
 
     this.#obj2.position = vec3(0, 3, 0);
 
     this.camera.position = vec3(0, 0, -15);
   }
 
+  static ROTATION_SPEED = 60; // degrees per second
+
   update(delta) {
-    const yRot = (this.#obj.rotation.y += delta + 1);
+    const yRot = (this.#obj.rotation.y + delta * TestScene.ROTATION_SPEED) % 360;
     this.#obj.rotation = vec3(0, yRot, 0);
 
     super.update(delta);

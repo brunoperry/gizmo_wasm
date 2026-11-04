@@ -25,25 +25,27 @@ Clone the repo and run index.html on localhost, no dependencies needed.
 
 Open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_.
 
-Next, open the `script.js` file, change the Demo class to add your new model to the scene _(line 50)_.
+Next, open `web/src/TestScene.js` and add your new model to the scene.
 
 ## Development
 
-To compile your C code/changes, make sure you have wasi installed then update your `.makefile --sysroot` directory accordingly _(line 9)_.
+You need the [WASI SDK](https://github.com/WebAssembly/wasi-sdk/releases) (tested with 25.0). Point the makefile at it and build:
 
-- WASI -> **_[https://wasi.dev](https://wasi.dev "https://wasi.dev")_**
+```sh
+make build WASI_SDK=/path/to/wasi-sdk    # optimized -> web/src/gizmo.wasm
+make debug WASI_SDK=/path/to/wasi-sdk    # -O0 with DWARF debug info
+```
 
-I'm developing this project on MacOs _(Ventura)_ and testing with chromium. If you have a different environment, it may not compile/work properly :(
+`WASI_SDK` defaults to `~/libs/wasi-sdk-25.0-x86_64-macos`. The module has no WASI imports (it uses its own bump allocator instead of `malloc`), so it runs in any browser with WebAssembly SIMD support.
 
-## Bugs
+### How it renders
 
-A lot of them. The most noticable being:
+- Each object is a triangle soup (9 floats/triangle) written by JS straight into wasm memory.
+- Per frame: one model-view matrix per object, back-face culling, frustum clipping only for triangles that cross a plane, then rasterization.
+- The rasterizer is a scanline rasterizer with a top-left fill rule. Depth (1/w) and u/w, v/w are stepped per pixel; textures are perspective-corrected every 16 pixels and interpolated in 16.16 fixed point in between.
 
-- x clipping.
-- Frame rate below 60.
-- Camera not working properly.
-- "Monkey Pressing" play/pause button messes with cursor lock _(UI)_.
-- Occasional crash.
-- ...
+## Known issues
+
+- No mobile support.
 
 Have fun!

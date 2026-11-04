@@ -29,6 +29,10 @@ export default class Engine {
   #start_time = performance.now();
   #previous_frame_time = 0;
 
+  // Longest step the simulation takes (tab switches, breakpoints...).
+  static MAX_DELTA = 0.1;
+  static FIXED_DELTA = 1 / 60;
+
   #listener = null;
   constructor(listener) {
     this.#listener = listener;
@@ -52,16 +56,22 @@ export default class Engine {
 
   play() {
     if (this.#loopID) return;
-    this.#display.lock_cursor = true;
+    // Without the lock there's no mouse look and Esc can't stop the loop,
+    // so don't keep running if the browser refuses it.
+    this.#display.request_lock().catch((error) => {
+      console.warn("Pointer lock refused:", error.message);
+      this.stop();
+    });
+    this.#previous_frame_time = performance.now();
     this.#loopID = requestAnimationFrame(() => this.#loop());
     // this.#audio.play();
 
     this.#listener(Engine.States.PLAYING);
   }
   playOnce() {
+    if (this.#loopID) return; // already running
     this.#listener(Engine.States.PLAYING);
     this.#loop(true);
-    this.#loopID = null;
     this.#listener(Engine.States.STOPPED);
   }
 
@@ -77,7 +87,9 @@ export default class Engine {
 
   #loop(once = false) {
     let time = performance.now();
-    this.#delta_time = (time - this.#previous_frame_time) / 1000.0;
+    this.#delta_time = once
+      ? Engine.FIXED_DELTA
+      : Math.min((time - this.#previous_frame_time) / 1000.0, Engine.MAX_DELTA);
     this.#frame++;
     if (time - this.#start_time > 1000) {
       this.#current_fps = (this.#frame / ((time - this.#start_time) / 1000)).toFixed(1);
@@ -102,10 +114,10 @@ export default class Engine {
   }
 
   getFrequency(freqIndex) {
-    return this.#audio.get_frequency(freqIndex);
+    return this.#audio ? this.#audio.get_frequency(freqIndex) : null;
   }
   getAudioTrack(audioIndex) {
-    return this.#audio.get_track(audioIndex);
+    return this.#audio ? this.#audio.get_track(audioIndex) : null;
   }
 
   get render_mode() {
