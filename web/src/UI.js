@@ -8,6 +8,7 @@ export class UI {
     RENDER_MODE: "rendermode",
     FILTER: "filter",
     GET_AUDIO: "getaudio",
+    MESH: "mesh",
   };
   #listener = null;
 
@@ -37,7 +38,6 @@ export class UI {
 
   constructor(listener) {
     this.#listener = listener;
-
     this.#setupUI();
   }
 
@@ -50,6 +50,24 @@ export class UI {
   disable() {
     this.#hud.className = "invisible";
     this.#controls.className = "invisible";
+  }
+
+  start_ui() {
+    const modelsSelect = document.querySelector("#models");
+    Resources.DATA.meshes.forEach((mesh) => {
+      const optionElem = document.createElement("option");
+      optionElem.value = mesh.url;
+      optionElem.innerText = mesh.name;
+      modelsSelect.appendChild(optionElem);
+    });
+
+    modelsSelect.onchange = () => {
+      this.#listener({
+        action: UI.Actions.MESH,
+        mesh: modelsSelect.value,
+      });
+      console.log("change");
+    };
   }
 
   #setupUI() {

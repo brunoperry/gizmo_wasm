@@ -53,6 +53,8 @@ export default class Resources {
       }
       Resources.audios.push(audio);
     }
+
+    Resources.DATA = raw_data;
   }
 
   static get_object(obj_name) {
@@ -114,7 +116,7 @@ export default class Resources {
     const vertices = parse_block(clean_data.search("Vertices:"), clean_data);
     const vertices_index = parse_block(
       clean_data.search("PolygonVertexIndex:"),
-      clean_data
+      clean_data,
     );
 
     const uvs_index = parse_block(clean_data.search("UVIndex:"), clean_data);
@@ -277,3 +279,5 @@ export default class Resources {
     return data.replace(/\t/g, "");
   }
 }
+
+Resources.DATA = null;

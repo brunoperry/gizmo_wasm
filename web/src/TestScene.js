@@ -16,7 +16,7 @@ export default class TestScene extends Scene {
 
     this.#obj2.position = vec3(0, 3, 0);
 
-    this.camera.position = vec3(0, 0, -15);
+    this.camera.position = vec3(0, 0, -20);
   }
 
   static ROTATION_SPEED = 60; // degrees per second

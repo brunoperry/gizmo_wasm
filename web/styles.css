@@ -92,13 +92,26 @@ button:active {
 #hud {
   display: grid;
   grid-template-areas:
-    'scene meminfo'
-    'counter rendermode';
+    'scene models meminfo'
+    'counter counter rendermode';
   grid-template-columns: auto 50%;
   grid-template-rows: 32px 96px;
   align-items: flex-end;
   gap: var(--gap);
   transition: opacity var(--speed) ease-in-out;
+}
+
+#scene {
+  grid-area: scene;
+  justify-content: flex-start !important;
+  align-items: center;
+  gap: var(--gap);
+}
+
+#models {
+  grid-area: models;
+  height: 100%;
+  background-color: red;
 }
 
 #mem-info {
@@ -118,6 +131,13 @@ button:active {
   flex-direction: column;
 }
 
+#render-modes {
+  grid-area: rendermode;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--gap);
+}
+
 
 #hud label {
   display: flex;
@@ -125,13 +145,6 @@ button:active {
   font-weight: bold;
   color: var(--color-d);
   justify-content: space-between;
-}
-
-#scene {
-  grid-area: scene;
-  justify-content: flex-start !important;
-  align-items: center;
-  gap: var(--gap);
 }
 
 #scene span {
@@ -152,13 +165,6 @@ button:active {
 #hud label span {
   font-weight: normal;
   color: var(--color-d);
-}
-
-#render-modes {
-  grid-area: rendermode;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--gap);
 }
 
 #render-modes button {
@@ -203,9 +209,10 @@ button:active {
   display: flex;
   justify-self: stretch;
 }
+
 #freqs canvas {
- background-image: none;
- flex: 1;
+  background-image: none;
+  flex: 1;
 }
 
 #tracks {
@@ -220,6 +227,7 @@ button:active {
   max-width: none;
   max-height: none;
 }
+
 #tracks button.toggle {
   color: white;
   background-color: var(--red);
@@ -263,7 +271,6 @@ button:active {
 }
 
 #filters {
-  visibility: hidden;
   grid-area: filters;
   display: flex;
   gap: var(--gap);
