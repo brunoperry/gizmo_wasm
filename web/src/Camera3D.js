@@ -1,23 +1,36 @@
 import Display from "./Display.js";
 import WASM from "./WASM.js";
-import {
-  mat4_from_rotation,
-  vec3,
-  vec3_cross,
-  vec3_scale_and_add,
-  vec3_transform_mat4,
-} from "./math.js";
+import { vec3, vec3_cross } from "./math.js";
 import InputController from "./InputController.js";
+
+// Smoothly approaches `target`: covers ~63% of the gap every `time_constant`
+// seconds, whatever the frame rate. 0 = no smoothing.
+const smooth = (current, target, time_constant, delta) =>
+  time_constant > 0
+    ? current + (target - current) * (1 - Math.exp(-delta / time_constant))
+    : target;
+
 export default class Camera3D {
   #MOVEMENT_SPEED = 6; // units per second
   #ROTATE_SPEED = 0.002; // radians per mouse pixel
-  #MAX_PITCH_Y = 0.99; // |direction.y| limit, avoids flipping over the poles
+  #MAX_PITCH = 1.5; // radians (~86 degrees), avoids flipping over the poles
   #UP = vec3(0, 1, 0);
   #cam_buffer;
+
+  // Smoothing time constants, in seconds (0 = off). Bigger = softer.
+  look_smoothing = 0.04; // mouse look
+  move_smoothing = 0.12; // acceleration / braking
 
   #pos;
   #dir;
   #up;
+
+  // Orientation as angles: the mouse moves the target, the view follows it.
+  #yaw = 0;
+  #pitch = 0;
+  #target_yaw = 0;
+  #target_pitch = 0;
+  #velocity = vec3(0, 0, 0);
 
   constructor(pos = vec3(0, 0, 0), dir = vec3(0, 0, 1.0), up = vec3(0, 1, 0)) {
     this.#pos = pos;
@@ -47,40 +60,69 @@ export default class Camera3D {
   }
 
   update(delta) {
-    this.#mouseUpdate();
+    this.#mouseUpdate(delta);
     this.#checkInputs(delta);
   }
-  #mouseUpdate() {
+  #mouseUpdate(delta) {
     const { dx, dy } = InputController.consumeMouseDelta();
-    if (dx === 0 && dy === 0) return;
+    // Mouse right turns right, mouse down looks down.
+    this.#target_yaw -= dx * this.#ROTATE_SPEED;
+    this.#target_pitch -= dy * this.#ROTATE_SPEED;
+    this.#target_pitch = Math.max(
+      -this.#MAX_PITCH,
+      Math.min(this.#MAX_PITCH, this.#target_pitch),
+    );
 
-    // Yaw: mouse right turns right.
-    const rotateY = mat4_from_rotation(-dx * this.#ROTATE_SPEED, this.#UP);
-    let dir = vec3_transform_mat4(this.#dir, rotateY);
-
-    // Pitch: mouse down looks down. Skipped near straight up/down.
-    const right = vec3_cross(dir, this.#UP);
-    const rotateX = mat4_from_rotation(-dy * this.#ROTATE_SPEED, right);
-    const pitched = rotateX && vec3_transform_mat4(dir, rotateX);
-    if (pitched && Math.abs(pitched.y) < this.#MAX_PITCH_Y) dir = pitched;
-
-    this.direction = dir;
+    const yaw = smooth(this.#yaw, this.#target_yaw, this.look_smoothing, delta);
+    const pitch = smooth(this.#pitch, this.#target_pitch, this.look_smoothing, delta);
+    if (yaw === this.#yaw && pitch === this.#pitch) return;
+    this.#yaw = yaw;
+    this.#pitch = pitch;
+    this.#write_direction();
   }
   #checkInputs(delta) {
-    const step = this.#MOVEMENT_SPEED * delta;
+    const key = (k) => (InputController.getKey(k) ? 1 : 0);
+    const forward = key(InputController.Key.W) - key(InputController.Key.S);
+    const strafe = key(InputController.Key.D) - key(InputController.Key.A);
+
+    // Wanted velocity: same speed in every direction, diagonals included.
     const right = vec3_cross(this.#dir, this.#UP);
+    const right_len = Math.hypot(right.x, right.y, right.z) || 1;
+    let tx = this.#dir.x * forward + (right.x / right_len) * strafe;
+    let ty = this.#dir.y * forward + (right.y / right_len) * strafe;
+    let tz = this.#dir.z * forward + (right.z / right_len) * strafe;
+    const len = Math.hypot(tx, ty, tz);
+    const scale = len > 0 ? this.#MOVEMENT_SPEED / len : 0;
+    ((tx *= scale), (ty *= scale), (tz *= scale));
 
-    if (InputController.getKey(InputController.Key.W)) {
-      this.position = vec3_scale_and_add(this.#pos, this.#dir, step);
-    } else if (InputController.getKey(InputController.Key.S)) {
-      this.position = vec3_scale_and_add(this.#pos, this.#dir, -step);
+    // Accelerate / brake towards it instead of jumping.
+    const v = this.#velocity;
+    v.x = smooth(v.x, tx, this.move_smoothing, delta);
+    v.y = smooth(v.y, ty, this.move_smoothing, delta);
+    v.z = smooth(v.z, tz, this.move_smoothing, delta);
+    if (Math.hypot(v.x, v.y, v.z) < 1e-4 && len === 0) {
+      v.x = v.y = v.z = 0;
+      return;
     }
+    this.position = vec3(
+      this.#pos.x + v.x * delta,
+      this.#pos.y + v.y * delta,
+      this.#pos.z + v.z * delta,
+    );
+  }
 
-    if (InputController.getKey(InputController.Key.A)) {
-      this.position = vec3_scale_and_add(this.#pos, right, -step);
-    } else if (InputController.getKey(InputController.Key.D)) {
-      this.position = vec3_scale_and_add(this.#pos, right, step);
-    }
+  #write_direction() {
+    const cp = Math.cos(this.#pitch);
+    this.#dir = vec3(
+      Math.sin(this.#yaw) * cp,
+      Math.sin(this.#pitch),
+      Math.cos(this.#yaw) * cp,
+    );
+    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([
+      this.#dir.x,
+      this.#dir.y,
+      this.#dir.z,
+    ]);
   }
 
   get position() {
@@ -93,9 +135,16 @@ export default class Camera3D {
   get direction() {
     return this.#dir;
   }
+  // Setting the direction (e.g. from a scene) points the camera there at once.
   set direction(val) {
-    this.#dir = val;
-    new Float32Array(WASM.mem, this.#cam_buffer[7], 3).set([val.x, val.y, val.z]);
+    const len = Math.hypot(val.x, val.y, val.z) || 1;
+    this.#yaw = this.#target_yaw = Math.atan2(val.x, val.z);
+    const pitch = Math.asin(Math.max(-1, Math.min(1, val.y / len)));
+    this.#pitch = this.#target_pitch = Math.max(
+      -this.#MAX_PITCH,
+      Math.min(this.#MAX_PITCH, pitch),
+    );
+    this.#write_direction();
   }
 
   get aspect_x() {

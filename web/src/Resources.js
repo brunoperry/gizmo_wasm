@@ -2,6 +2,7 @@ import AudioTrack from "./AudioTrack.js";
 import Object3D from "./Object3D.js";
 import Texture from "./Texture.js";
 import WASM from "./WASM.js";
+import USDA from "./USDA.js";
 
 export default class Resources {
   static objects = [];
@@ -9,6 +10,7 @@ export default class Resources {
   static audios = [];
   static splash = null;
   static main_audio = null;
+  static #textures_by_url = new Map();
 
   static async initialize(listener, state) {
     if (listener) listener(state, "loading data.json");
@@ -17,29 +19,37 @@ export default class Resources {
     for (let i = 0; i < raw_data.images.length; i++) {
       if (listener) listener(state, `loading image: ${raw_data.images[i].name}`);
       const image_data = await Resources.#load_image_file(raw_data.images[i]);
-
-      const t_buffer = WASM.set_texture_buffer(image_data.width, image_data.height, i);
-
-      const texture = new Texture(image_data, t_buffer, i);
-      Resources.textures.push(texture);
+      Resources.#add_texture(
+        image_data,
+        new URL(raw_data.images[i].url, document.baseURI).href,
+      );
     }
 
-    for (let i = 0; i < raw_data.meshes.length; i++) {
-      if (listener) listener(state, `loading object: ${raw_data.meshes[i].name}`);
+    for (const entry of raw_data.meshes) {
+      if (listener) listener(state, `loading object: ${entry.name}`);
 
-      const split_data = raw_data.meshes[i].url.split(".");
-      const obj_type = split_data[split_data.length - 1];
-      let obj_data;
+      const obj_type = entry.url.split(".").pop().toLowerCase();
+      let loaded;
       switch (obj_type) {
         case "obj":
-          obj_data = await Resources.#load_obj_file(raw_data.meshes[i].url);
+          loaded = await Resources.#load_obj_file(entry.url);
           break;
         case "fbx":
-          obj_data = await Resources.#load_fbx_file(raw_data.meshes[i].url);
+          loaded = await Resources.#load_fbx_file(entry.url);
           break;
+        case "usda":
+        case "usd":
+          loaded = await Resources.#load_usd_file(entry.url);
+          break;
+        default:
+          throw new Error(`Unsupported mesh format: ${entry.url}`);
       }
-      obj_data.texture = Resources.get_image(raw_data.meshes[i].texture);
-      Resources.objects.push(obj_data);
+      // A USD file can hold several meshes; get_objects(entry.name) returns them all.
+      for (const obj of [].concat(loaded)) {
+        if (entry.texture) obj.texture = Resources.get_image(entry.texture);
+        obj.group = entry.name;
+        Resources.objects.push(obj);
+      }
     }
 
     for (let i = 0; i < raw_data.audios.length; i++) {
@@ -58,8 +68,24 @@ export default class Resources {
   }
 
   static get_object(obj_name) {
-    const obj = Resources.objects.find((obj) => obj.name === obj_name).clone();
-    return obj;
+    const obj = Resources.objects.find((obj) => obj.name === obj_name);
+    if (!obj) {
+      // Common mix-up: a data.json entry name that holds several meshes (USD).
+      const group = Resources.objects.filter((o) => o.group === obj_name).map((o) => o.name);
+      throw new Error(
+        group.length
+          ? `"${obj_name}" is a file with ${group.length} meshes (${group.join(", ")}): ` +
+              `use Resources.get_objects("${obj_name}") or get_object("<mesh name>")`
+          : `No object named "${obj_name}"`
+      );
+    }
+    return obj.clone();
+  }
+  // Every object loaded from one data.json mesh entry (e.g. all meshes of a USD file).
+  static get_objects(entry_name) {
+    return Resources.objects
+      .filter((obj) => obj.group === entry_name)
+      .map((obj) => obj.clone());
   }
   static get_image(image_name) {
     return Resources.textures.find((image) => image.name === image_name);
@@ -154,6 +180,74 @@ export default class Resources {
 
     return object3d;
   }
+  // .usda (USD ASCII). Each Mesh prim becomes an Object3D named after the
+  // prim, with its transform hierarchy baked in. Its texture comes from the
+  // bound UsdPreviewSurface: the diffuse texture file, or a 1x1 texture of
+  // the diffuse color. A "texture" in data.json overrides it.
+  static async #load_usd_file(data_path) {
+    const url = new URL(data_path, document.baseURI);
+    const warn = (message) => console.warn(`${data_path}: ${message}`);
+    const meshes = USDA.load(await Resources.#load_text_data(url), warn);
+    if (!meshes.length) warn("no meshes found");
+
+    const objects = [];
+    for (const mesh of meshes) {
+      const obj = Resources.#make_fan_strip(mesh);
+      obj.texture = await Resources.#usd_texture(mesh.material, url, warn);
+      objects.push(obj);
+    }
+    return objects;
+  }
+  static async #usd_texture(material, base_url, warn) {
+    if (!material) return undefined;
+    if (material.texture) {
+      if (material.texture.includes("<UDIM>")) {
+        warn(`UDIM textures are not supported: ${material.texture}`);
+      } else {
+        const url = new URL(material.texture, base_url).href;
+        try {
+          return (
+            Resources.#textures_by_url.get(url) ??
+            Resources.#add_texture(
+              await Resources.#load_image_file({ name: url, url }),
+              url,
+            )
+          );
+        } catch (error) {
+          warn(`could not load texture ${material.texture}`);
+        }
+      }
+    }
+    if (!material.color) return undefined;
+    // USD colors are linear; textures are sRGB.
+    const srgb = (c) => {
+      c = Math.min(1, Math.max(0, c || 0));
+      return Math.round(
+        255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055),
+      );
+    };
+    const rgb = material.color.map(srgb);
+    const name = `usd-color:${rgb.join(",")}`;
+    return (
+      Resources.get_image(name) ??
+      Resources.#add_texture({
+        name,
+        width: 1,
+        height: 1,
+        data: new ImageData(new Uint8ClampedArray([...rgb, 255]), 1, 1),
+      })
+    );
+  }
+  // Texture ids follow creation order, as on the C side.
+  static #add_texture(image_data, url = null) {
+    const id = Resources.textures.length;
+    const buffer = WASM.set_texture_buffer(image_data.width, image_data.height, id);
+    const texture = new Texture(image_data, buffer, id);
+    Resources.textures.push(texture);
+    if (url) Resources.#textures_by_url.set(url, texture);
+    return texture;
+  }
+
   static async #load_obj_file(data_path) {
     const data = await Resources.#load_text_data(data_path);
     const lines = data.split("\n");
@@ -237,6 +331,7 @@ export default class Resources {
           resolve(img);
         }
       };
+      img.onerror = () => reject(new Error(`Could not load image ${data.url}`));
       img.src = data.url;
     });
   }

@@ -57,9 +57,18 @@ export default class InputController {
     });
 
     document.addEventListener("mousemove", (e) => {
+      // Only mouse look counts: moving over the page while unlocked would
+      // make the camera jump when play starts.
+      if (!document.pointerLockElement) return;
+      // Chrome sometimes reports a huge jump right after locking: drop it.
+      if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
       // Accumulate: several mousemove events can fire between two frames.
       InputController.MouseDX += e.movementX;
       InputController.MouseDY += e.movementY;
+    });
+    document.addEventListener("pointerlockchange", () => {
+      InputController.MouseDX = 0;
+      InputController.MouseDY = 0;
     });
 
     document.addEventListener(

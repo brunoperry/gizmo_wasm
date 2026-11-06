@@ -61,11 +61,9 @@ export default class WASM {
     camera.initialize(buffers);
     WASM.#c_module.cam_done();
   }
-  static set_light_buffer(light) {
-    const light_buffer = WASM.#check(WASM.#c_module.set_light_buffer(), "light");
-    const buffers = new Int32Array(WASM.mem, light_buffer, 1);
-    light.initialize(buffers);
-    WASM.#c_module.light_done();
+  // Pointer to the light block (layout in C/light3d.h), see Scene.js.
+  static set_light_buffer() {
+    return WASM.#check(WASM.#c_module.set_light_buffer(), "lights");
   }
   static set_object_buffer(obj3D) {
     const obj_buffer = WASM.#check(

@@ -14,6 +14,8 @@ mat4_t mat4_make_scale(vec3_t s);
 mat4_t mat4_make_translation(vec3_t t);
 mat4_t mat4_make_rotation(vec3_t angles); // Rx * Ry * Rz
 mat4_t mat4_mul_mat4(mat4_t a, mat4_t b);
+// Inverse of a rotation (orthonormal, may be mirrored) + translation.
+mat4_t mat4_rigid_inverse(const mat4_t *m);
 
 // Transforms a point (w = 1), ignoring the projective row.
 static inline vec3_t mat4_mul_point(const mat4_t *m, float x, float y, float z)

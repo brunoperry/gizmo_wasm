@@ -18,6 +18,15 @@ window.onload = async () => {
       case UI.Actions.RENDER_MODE:
         engine.render_mode = e.mode;
         break;
+      case UI.Actions.LIGHTING_MODE:
+        engine.lighting_mode = e.mode;
+        break;
+      case UI.Actions.LIGHT_GIZMOS:
+        engine.show_light_gizmos = !engine.show_light_gizmos;
+        break;
+      case UI.Actions.SHADOWS:
+        engine.shadows = !engine.shadows;
+        break;
       case UI.Actions.FILTER:
         engine.applyFilter(e.filter);
         break;
@@ -40,6 +49,12 @@ window.onload = async () => {
       case Engine.States.STOPPED:
         ui.set_playpause(false);
         break;
+      case Engine.States.LIGHTING_CHANGED:
+        ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
+        break;
+      case Engine.States.FILTER_CHANGED:
+        ui.set_filter(data);
+        break;
       case Engine.States.MODE_CHANGED:
         ui.set_render_mode(engine.render_mode);
         break;
@@ -49,6 +64,7 @@ window.onload = async () => {
       case Engine.States.READY:
         ui.enable();
         ui.set_scene_name(engine.scene_name);
+        ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
         ui.set_scene_memory(engine.memory);
         ui.log_console(data);
         break;

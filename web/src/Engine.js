@@ -11,7 +11,15 @@ export default class Engine {
     MODE_CHANGED: 2,
     LOADING: 3,
     READY: 4,
+    FILTER_CHANGED: 5,
+    LIGHTING_CHANGED: 6,
   };
+
+  // Filters that stay on (applied to every frame) until toggled off; one at
+  // a time, so turning one on replaces the other. The rest (none for now)
+  // are applied once to the current frame.
+  static PERSISTENT_FILTERS = ["fisheye", "barrel"];
+  #filter = null;
 
   //debug purposes
   #locked = true;
@@ -101,14 +109,29 @@ export default class Engine {
 
     this.#scene.update(this.#delta_time);
 
-    WASM.update();
+    this.#render();
 
     this.#display.update();
 
     if (!once) this.#loopID = requestAnimationFrame(() => this.#loop());
   }
 
+  #render() {
+    WASM.update();
+    if (this.#filter) WASM.apply_filter(this.#filter);
+  }
+
   applyFilter(filter) {
+    if (Engine.PERSISTENT_FILTERS.includes(filter)) {
+      this.#filter = this.#filter === filter ? null : filter;
+      // While paused, redraw so the change shows right away.
+      if (!this.#loopID) {
+        this.#render();
+        this.#display.update();
+      }
+      this.#listener(Engine.States.FILTER_CHANGED, this.#filter);
+      return;
+    }
     WASM.apply_filter(filter);
     this.#display.update();
   }
@@ -120,12 +143,45 @@ export default class Engine {
     return this.#audio ? this.#audio.get_track(audioIndex) : null;
   }
 
+  // Redraws the current frame while paused, so setting changes show at once.
+  #refresh() {
+    if (this.#loopID) return;
+    this.#render();
+    if (!this.#locked) this.#display.update();
+  }
+
+  get lighting_mode() {
+    return this.#display.lighting_mode;
+  }
+  set lighting_mode(val) {
+    this.#display.lighting_mode = val;
+    this.#refresh();
+    this.#listener(Engine.States.LIGHTING_CHANGED);
+  }
+  get show_light_gizmos() {
+    return this.#display.show_light_gizmos;
+  }
+  set show_light_gizmos(val) {
+    this.#display.show_light_gizmos = val;
+    this.#refresh();
+    this.#listener(Engine.States.LIGHTING_CHANGED);
+  }
+
+  get shadows() {
+    return this.#display.shadows;
+  }
+  set shadows(val) {
+    this.#display.shadows = val;
+    this.#refresh();
+    this.#listener(Engine.States.LIGHTING_CHANGED);
+  }
+
   get render_mode() {
     return this.#display.render_mode;
   }
   set render_mode(val) {
     this.#display.render_mode = val;
-    WASM.update();
+    this.#render();
 
     //debug purposes, clear the if statment for production
     if (!this.#locked) this.#display.update();

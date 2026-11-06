@@ -181,9 +181,9 @@ button:active {
 #controls {
   display: grid;
   grid-template-areas:
-    'filters tracks'
-    'actions freqs';
-  grid-template-columns: 200px auto;
+    'filters lighting tracks'
+    'actions actions freqs';
+  grid-template-columns: auto auto 1fr;
   max-height: 128px;
   gap: var(--gap);
   transition: opacity var(--speed) ease-in-out;
@@ -275,7 +275,8 @@ button:active {
   display: flex;
   gap: var(--gap);
   justify-content: flex-start;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
   transition: opacity var(--speed) ease-in-out;
 }
 
@@ -283,6 +284,30 @@ button:active {
   color: whitesmoke;
   max-width: none;
   max-height: none;
+  flex: none;
+}
+
+#lighting {
+  grid-area: lighting;
+  margin-left: calc(var(--gap) * 3);
+  display: flex;
+  gap: var(--gap);
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  transition: opacity var(--speed) ease-in-out;
+}
+
+#controls #lighting button {
+  color: whitesmoke;
+  max-width: none;
+  max-height: none;
+  flex: none;
+}
+
+/* The lights toggle is not a lighting mode: keep it apart. */
+#controls #lighting #light-gizmos {
+  margin-left: calc(var(--gap) * 3);
 }
 
 button.toggled {

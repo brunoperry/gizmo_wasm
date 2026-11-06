@@ -9,6 +9,14 @@
       "name": "bowl",
       "url": "./resources/meshes/bowl.obj",
       "texture": "bowl"
+    },
+    {
+      "name": "surfer_usd",
+      "url": "./resources/meshes/surfer.usda"
+    },
+    {
+      "name": "city_usd",
+      "url": "./resources/meshes/city.usda"
     }
   ],
   "images": [

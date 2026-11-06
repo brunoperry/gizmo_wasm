@@ -12,7 +12,8 @@ typedef struct
 {
     float *vertices;
     float *uvs;
-    float *normals; // uploaded by JS, unused for flat shading
+    float *normals; // 9 floats per triangle; zeros where the model has none
+    int has_normals;
     int num_triangles;
 
     float *position;
@@ -20,6 +21,8 @@ typedef struct
     float *scale;
 
     int texture_id;
+
+    float bounds_min[3], bounds_max[3]; // local-space box, for fitting shadow maps
 } object3d_t;
 
 #endif

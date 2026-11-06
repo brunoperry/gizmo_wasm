@@ -10,6 +10,7 @@
 #include "light3d.h"
 #include "texture.h"
 #include "object.h"
+#include "shadow_pass.h"
 
 #define CLEAR_COLOR 0x22FF0000u
 
@@ -32,9 +33,10 @@ EXPORT(set_color_buffer) uint32_t *set_color_buffer(int width, int height)
     return display_create(width, height);
 }
 
+// 4 ints written by javascript: render mode, lighting mode, show light gizmos, shadows.
 EXPORT(set_render_mode_buffer) int32_t *set_render_mode_buffer(void)
 {
-    display.render_mode = gz_alloc(3 * sizeof(int32_t));
+    display.render_mode = gz_alloc(4 * sizeof(int32_t));
     return display.render_mode;
 }
 
@@ -70,15 +72,13 @@ EXPORT(set_camera_buffer) uint32_t *set_camera_buffer(void)
     return buffer;
 }
 
-// Returns 1 pointer: direction (vec3)
-EXPORT(set_light_buffer) uint32_t *set_light_buffer(void)
+// Returns the light block javascript writes (layout in light3d.h).
+EXPORT(set_light_buffer) float *set_light_buffer(void)
 {
-    uint32_t *buffer = gz_alloc(sizeof(uint32_t));
-    light3d.direction = alloc_floats(3);
-    if (!buffer || !light3d.direction)
-        return NULL;
-    buffer[0] = (uint32_t)(uintptr_t)light3d.direction;
-    return buffer;
+    if (!light_data)
+        light_data = alloc_floats(LIGHT_HEADER + MAX_LIGHTS * LIGHT_STRIDE);
+    light_ready = light_data != NULL;
+    return light_data;
 }
 
 // Returns 7 values: vertices, uvs, normals, position, rotation, scale pointers + texture id
@@ -106,6 +106,7 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
         return NULL;
 
     obj->num_triangles = num_triangles;
+    obj->has_normals = n_length >= num_triangles * 9;
     obj->texture_id = texture_id;
     obj->scale[0] = obj->scale[1] = obj->scale[2] = 1.0f;
 
@@ -123,13 +124,25 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
 
 EXPORT(obj_done) void obj_done(void)
 {
-    if (pending_object && total_objects < MAX_OBJECTS)
-        objects[total_objects++] = pending_object;
+    object3d_t *obj = pending_object;
     pending_object = NULL;
+    if (!obj || total_objects >= MAX_OBJECTS)
+        return;
+
+    // Vertex data is written now: compute the local bounds once.
+    for (int k = 0; k < 3; k++)
+        obj->bounds_min[k] = obj->bounds_max[k] = obj->num_triangles ? obj->vertices[k] : 0.0f;
+    for (int i = 0; i < obj->num_triangles * 9; i += 3)
+        for (int k = 0; k < 3; k++)
+        {
+            float v = obj->vertices[i + k];
+            if (v < obj->bounds_min[k]) obj->bounds_min[k] = v;
+            if (v > obj->bounds_max[k]) obj->bounds_max[k] = v;
+        }
+    objects[total_objects++] = obj;
 }
 
 EXPORT(cam_done) void cam_done(void) { camera_ready = camera3d.position != NULL; }
-EXPORT(light_done) void light_done(void) { light_ready = light3d.direction != NULL; }
 
 EXPORT(update) void update(void)
 {
@@ -141,13 +154,19 @@ EXPORT(update) void update(void)
     camera_frame_t frame;
     camera_frame(&frame);
 
-    vec3_t light_dir = vec3_normalize_or(vec3_from_ptr(light3d.direction), vec3_new(0, -1, 0));
-    vec3_t light_view = mat4_mul_dir(&frame.view, light_dir);
-
+    lighting_t lights;
+    lighting_frame(&lights, &frame.view);
     int mode = display.render_mode[0];
+    if (display.render_mode[3] && mode != RENDER_WIRED)
+        shadows_render(&lights, objects, total_objects);
+
+    int lighting = display.render_mode[1];
     int total_tris = 0;
     for (int i = 0; i < total_objects; i++)
-        total_tris += render_object(objects[i], &frame, light_view, mode);
+        total_tris += render_object(objects[i], &frame, &lights, mode, lighting);
+
+    if (display.render_mode[2])
+        render_light_gizmos(&lights, &frame);
 
     info_log(total_tris, total_tris * 3);
 }

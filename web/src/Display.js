@@ -10,6 +10,13 @@ export default class Display {
     TEXTURED: 2,
   };
 
+  // Where lighting is computed (see C/light3d.h).
+  static LightingModes = {
+    TRIANGLE: 0,
+    VERTEX: 1,
+    PIXEL: 2,
+  };
+
   #canvas;
   #context;
   #c_pointer;
@@ -47,11 +54,33 @@ export default class Display {
     return this.#image_data;
   }
 
+  // The render mode buffer holds 4 ints: render mode, lighting mode, show light gizmos, shadows.
+  #settings() {
+    return new Int32Array(WASM.mem, this.#render_mode_buffer, 4);
+  }
   get render_mode() {
-    return new Int32Array(WASM.mem, this.#render_mode_buffer, 1)[0];
+    return this.#settings()[0];
   }
   set render_mode(val) {
-    new Int32Array(WASM.mem, this.#render_mode_buffer, 1).set([val]);
+    this.#settings()[0] = val;
+  }
+  get lighting_mode() {
+    return this.#settings()[1];
+  }
+  set lighting_mode(val) {
+    this.#settings()[1] = val;
+  }
+  get show_light_gizmos() {
+    return this.#settings()[2] !== 0;
+  }
+  set show_light_gizmos(val) {
+    this.#settings()[2] = val ? 1 : 0;
+  }
+  get shadows() {
+    return this.#settings()[3] !== 0;
+  }
+  set shadows(val) {
+    this.#settings()[3] = val ? 1 : 0;
   }
 
   get lock_cursor() {

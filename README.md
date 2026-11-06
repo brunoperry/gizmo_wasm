@@ -9,8 +9,12 @@
 ## Features
 
 - OBJ model loader _(mesh data only)_
+- USD loader for `.usda` files _(meshes, transforms, materials)_
 - Z-buffering
-- Flat shading _(directional lighting)_
+- Colored lights: directional, point and spot _(up to 8 per scene)_
+- Lighting per triangle, per vertex or per pixel
+- Light gizmos _(show/hide with the LIGHTS button)_
+- Shadows from every light type _(shadow maps, SHADOWS button)_
 - Wireframe, shaded and textured render modes
 
 ## Check it out
@@ -26,6 +30,68 @@ Clone the repo and run index.html on localhost, no dependencies needed.
 Open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_.
 
 Next, open `web/src/TestScene.js` and add your new model to the scene.
+
+### USD (`.usda`)
+
+USD files go in `data.json` like OBJ files; `texture` is optional, since it comes from the file's material:
+
+```json
+{ "name": "surfer_usd", "url": "./resources/meshes/surfer.usda" }
+```
+
+- Each `Mesh` prim becomes an object named after the prim: `Resources.get_object("surfer_usd")`. `Resources.get_objects("<data.json name>")` returns every mesh in the file.
+- Transforms (all `xformOp`s, the whole hierarchy) are baked into the vertices, and `upAxis = "Z"` is converted to Y-up. Each object starts at the origin, in the place the file puts it.
+- Polygons, holes, `leftHanded` orientation, indexed/non-indexed UVs and normals, and the selected variants are supported.
+- The texture comes from the bound `UsdPreviewSurface`: its `UsdUVTexture` file, or a 1x1 texture of its `diffuseColor`. Meshes split into material `GeomSubset`s become one object per material.
+- Not supported (a console warning is shown): binary `.usdc`/`.usdz`, references/payloads/sublayers, instancing, animation (the first time sample is used), and non-mesh shapes like `Cube` or `Sphere`.
+
+## Lights
+
+Every scene starts with a white directional light (`scene.light`) and gray ambient light (`scene.ambient`). Add more in your scene's constructor:
+
+```js
+import Light3D from "./Light3D.js";
+
+this.add_light(new Light3D({
+  type: Light3D.Types.POINT,
+  position: vec3(-4, 1, -3),
+  color: "#ff8833",
+  intensity: 1.4,
+  range: 9, // fades to zero at this distance
+}));
+
+this.add_light(new Light3D({
+  type: Light3D.Types.SPOT,
+  position: vec3(4, 7, -2),
+  direction: vec3(-0.4, -1, 0.15),
+  color: "#4488ff",
+  range: 16,
+  inner_angle: 12, // full brightness inside, degrees from the axis
+  outer_angle: 22, // no light outside, smooth in between
+}));
+
+this.ambient = "#141418";
+```
+
+Every property (`position`, `color`, `intensity`...) can change at any time. Use `scene.remove_light(light)` to take a light out.
+
+The TRIANGLE / VERTEX / PIXEL buttons choose where lighting is computed:
+
+- **Triangle**: once per triangle (flat, faceted look). Fastest.
+- **Vertex**: per vertex, then interpolated (Gouraud). Smooth; small spots of light can fall between vertices.
+- **Pixel**: per pixel, from the interpolated position and normal. The most accurate and the most expensive.
+
+Vertex and pixel lighting use the model's vertex normals when it has them, otherwise the face normals.
+
+### Shadows
+
+The SHADOWS button turns shadows on and off (off by default). Every light casts shadows unless created with `shadows: false` (or `light.shadows = false` later).
+
+- Shadow maps: directional lights use one 512x512 map fitted around the whole scene, spot lights one 512x512 map covering their cone, point lights a 6 x 256x256 cube map.
+- They follow the lighting mode: per triangle and per vertex the shadow is sampled at the triangle's centre / at each vertex (coarse), per pixel it is exact with soft (filtered) edges.
+- A map is only redrawn when a light or an object moves; moving the camera is free. A static scene costs nothing extra per frame.
+- Both sides of every triangle cast shadows, so single-sided walls and planes work. Texture transparency is ignored: transparent pixels still cast shadows.
+- Cost when things move (320x240, ~5000 triangles): about 1 ms per directional or spot light, about 2 ms per point light. Use `shadows: false` on lights that don't need them.
 
 ## Development
 

@@ -61,3 +61,14 @@ mat4_t mat4_mul_mat4(mat4_t a, mat4_t b)
             m.m[i][j] = a.m[i][0] * b.m[0][j] + a.m[i][1] * b.m[1][j] + a.m[i][2] * b.m[2][j] + a.m[i][3] * b.m[3][j];
     return m;
 }
+
+mat4_t mat4_rigid_inverse(const mat4_t *m)
+{
+    mat4_t r = mat4_identity();
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            r.m[i][j] = m->m[j][i];
+    for (int i = 0; i < 3; i++)
+        r.m[i][3] = -(r.m[i][0] * m->m[0][3] + r.m[i][1] * m->m[1][3] + r.m[i][2] * m->m[2][3]);
+    return r;
+}

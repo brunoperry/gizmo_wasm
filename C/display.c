@@ -33,15 +33,23 @@ void display_clear(uint32_t color)
     memset(display.depth, 0, length * sizeof(float)); // 0.0f == "infinitely far"
 }
 
+// Barrel distortion strength (0 = none).
+#define BARREL_K 0.25f
+
 // Source pixel for (x, y), or -1 to leave the pixel untouched.
+//
+// Barrel: a pixel at normalized radius r (1 = corner) samples the image at
+// r * (1 + k r^2) / (1 + k). The division keeps the corners in place, so the
+// whole screen stays covered: the centre is magnified and straight lines
+// bow outwards.
 static int32_t barrel_source(int x, int y, int w, int h)
 {
-    const float k = 0.006f;
-    float cx = (float)(w / 2), cy = (float)(h / 2);
-    float dx = x - cx, dy = y - cy;
-    float d2 = dx * dx + dy * dy;
-    int sx = (int)(dx * (1.0f + k * d2 / (float)(w * w)) + cx + 0.5f);
-    int sy = (int)(dy * (1.0f + k * d2 / (float)(h * h)) + cy + 0.5f);
+    float cx = 0.5f * (float)w, cy = 0.5f * (float)h;
+    float dx = (float)x + 0.5f - cx, dy = (float)y + 0.5f - cy;
+    float r2 = (dx * dx + dy * dy) / (cx * cx + cy * cy);
+    float scale = (1.0f + BARREL_K * r2) / (1.0f + BARREL_K);
+    int sx = (int)floorf(cx + dx * scale);
+    int sy = (int)floorf(cy + dy * scale);
     if (sx < 0 || sx >= w || sy < 0 || sy >= h)
         return -1;
     return sy * w + sx;

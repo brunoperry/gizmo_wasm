@@ -28,7 +28,7 @@ typedef struct
     uint32_t *scratch;
     int32_t *filter_maps[2];
 
-    int32_t *render_mode; // written by javascript
+    int32_t *render_mode; // written by javascript: [render mode, lighting mode, show light gizmos, shadows]
 } display_t;
 
 extern display_t display;

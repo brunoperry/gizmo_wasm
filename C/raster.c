@@ -4,10 +4,18 @@
 
 #define ALWAYS_INLINE static inline __attribute__((always_inline))
 
-// Texture coordinates are perspective-corrected every SPAN pixels.
+// Perspective-correct values are computed exactly every SPAN pixels and
+// interpolated linearly in between.
 #define SPAN 16
 #define FIXED_SHIFT 16
 #define FIXED_ONE 65536.0f
+
+enum
+{
+    TEX_NONE = 0,
+    TEX_POT = 1,  // power-of-two: wrap with masks
+    TEX_NPOT = 2, // any size: wrap with modulo
+};
 
 // Alpha-blends src over dst (same formula the engine always used).
 ALWAYS_INLINE uint32_t color_blend(uint32_t src, uint32_t dst)
@@ -28,13 +36,18 @@ ALWAYS_INLINE int wrap(int i, int size)
 // Scanline rasterizer with top-left fill rule (pixel centers at .5), so
 // triangles sharing an edge never overdraw or leave gaps.
 //
-// 1/w, u/w and v/w are linear in screen space: their gradients are computed
-// once per triangle and stepped per pixel. Rows and spans are clamped to the
-// display, so nothing is ever written out of bounds.
-ALWAYS_INLINE void raster_triangle(const svert_t *v0, const svert_t *v1, const svert_t *v2,
-                                   const int textured, const int pot,
-                                   const texture_t *tex, uint32_t param)
+// 1/w and every attribute/w are linear in screen space: their gradients are
+// computed once per triangle and stepped per pixel. Rows and spans are
+// clamped to the display, so nothing is ever written out of bounds.
+//
+// `tex_kind` and `lighting` are compile-time constants at every call site,
+// so each combination gets its own specialized loop.
+ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert_t *v2,
+                               const int tex_kind, const int lighting, const raster_params_t *p)
 {
+    const int textured = tex_kind != TEX_NONE;
+    const int nattr = lighting == LIGHTING_VERTEX ? 3 : lighting == LIGHTING_PIXEL ? 6 : 0;
+
     const svert_t *t;
     if (v1->y < v0->y) t = v0, v0 = v1, v1 = t;
     if (v2->y < v1->y) t = v1, v1 = v2, v2 = t;
@@ -64,6 +77,12 @@ ALWAYS_INLINE void raster_triangle(const svert_t *v0, const svert_t *v1, const s
         dv_dx = GRAD_X(v0->v, v1->v, v2->v);
         dv_dy = GRAD_Y(v0->v, v1->v, v2->v);
     }
+    float da_dx[RASTER_MAX_ATTRS], da_dy[RASTER_MAX_ATTRS];
+    for (int k = 0; k < nattr; k++)
+    {
+        da_dx[k] = GRAD_X(v0->a[k], v1->a[k], v2->a[k]);
+        da_dy[k] = GRAD_Y(v0->a[k], v1->a[k], v2->a[k]);
+    }
 #undef GRAD_X
 #undef GRAD_Y
 
@@ -80,12 +99,16 @@ ALWAYS_INLINE void raster_triangle(const svert_t *v0, const svert_t *v1, const s
     const float slope_bottom = (y2 - y1) > 0 ? (x2 - x1) / (y2 - y1) : 0.0f;
     const int long_is_left = det > 0;
 
+    const texture_t *tex = p->tex;
     const int tex_w = textured ? tex->width : 0;
     const int tex_h = textured ? tex->height : 0;
     const int w_mask = tex_w - 1, h_mask = tex_h - 1, w_shift = textured ? tex->w_shift : 0;
     const uint32_t *pixels = textured ? tex->pixels : 0;
     const float inv_tex_w = textured ? 1.0f / tex_w : 0.0f;
     const float inv_tex_h = textured ? 1.0f / tex_h : 0.0f;
+
+    const int flat_r = p->light[0], flat_g = p->light[1], flat_b = p->light[2];
+    const uint32_t flat_color = color_modulate(p->color, flat_r, flat_g, flat_b);
 
     for (int y = y_start; y < y_end; y++)
     {
@@ -105,90 +128,152 @@ ALWAYS_INLINE void raster_triangle(const svert_t *v0, const svert_t *v1, const s
 
         const float ox = (float)x_start + 0.5f - x0, oy = py - y0;
         float iw = v0->iw + diw_dx * ox + diw_dy * oy;
-        float u = 0, v = 0;
-        if (textured)
-        {
-            u = v0->u + du_dx * ox + du_dy * oy;
-            v = v0->v + dv_dx * ox + dv_dy * oy;
-        }
 
         uint32_t *restrict cp = display.color + y * width + x_start;
         float *restrict zp = display.depth + y * width + x_start;
         const int count = x_end - x_start;
 
-        if (!textured)
+        // Flat color, nothing to interpolate but depth.
+        if (!textured && lighting == LIGHTING_TRIANGLE)
         {
             for (int i = 0; i < count; i++)
             {
                 if (iw > zp[i])
                 {
                     zp[i] = iw;
-                    cp[i] = param;
+                    cp[i] = flat_color;
                 }
                 iw += diw_dx;
             }
             continue;
         }
 
-        // Perspective-correct u,v every SPAN pixels, affine 16.16 fixed point
-        // in between: one division per span instead of one per pixel.
+        float u = 0, v = 0, a[RASTER_MAX_ATTRS];
+        if (textured)
+        {
+            u = v0->u + du_dx * ox + du_dy * oy;
+            v = v0->v + dv_dx * ox + dv_dy * oy;
+        }
+        for (int k = 0; k < nattr; k++)
+            a[k] = v0->a[k] + da_dx[k] * ox + da_dy[k] * oy;
+
+        // Values at the start of the current span, divided back by 1/w.
         float inv = 1.0f / iw;
         float u_start = u * inv, v_start = v * inv;
+        float a_start[RASTER_MAX_ATTRS];
+        for (int k = 0; k < nattr; k++)
+            a_start[k] = a[k] * inv;
+
         for (int i = 0; i < count;)
         {
             int n = count - i;
             if (n > SPAN) n = SPAN;
+            const float inv_n = 1.0f / (float)n;
+            const float inv_end = 1.0f / (iw + diw_dx * n);
 
-            u += du_dx * n;
-            v += dv_dx * n;
-            float inv_end = 1.0f / (iw + diw_dx * n);
-            float u_end = u * inv_end, v_end = v * inv_end;
+            // Texture: affine 16.16 fixed point across the span.
+            int32_t uf = 0, vf = 0, duf = 0, dvf = 0;
+            float u_end = 0, v_end = 0;
+            if (textured)
+            {
+                u += du_dx * n;
+                v += dv_dx * n;
+                u_end = u * inv_end;
+                v_end = v * inv_end;
+                // Wrap the start into the texture so fixed point can't overflow.
+                float u_base = u_start - floorf(u_start * inv_tex_w) * (float)tex_w;
+                float v_base = v_start - floorf(v_start * inv_tex_h) * (float)tex_h;
+                uf = (int32_t)(u_base * FIXED_ONE);
+                vf = (int32_t)(v_base * FIXED_ONE);
+                duf = (int32_t)((u_end - u_start) * FIXED_ONE * inv_n);
+                dvf = (int32_t)((v_end - v_start) * FIXED_ONE * inv_n);
+            }
 
-            // Wrap the start into the texture so fixed point can't overflow.
-            float u_base = u_start - floorf(u_start * inv_tex_w) * (float)tex_w;
-            float v_base = v_start - floorf(v_start * inv_tex_h) * (float)tex_h;
-            float step = FIXED_ONE / (float)n;
-            int32_t uf = (int32_t)(u_base * FIXED_ONE);
-            int32_t vf = (int32_t)(v_base * FIXED_ONE);
-            const int32_t duf = (int32_t)((u_end - u_start) * step);
-            const int32_t dvf = (int32_t)((v_end - v_start) * step);
+            // Lighting attributes: linear across the span. Per-vertex light
+            // (0..1) goes to 8.16 fixed point, so pixels only shift.
+            float a_end[RASTER_MAX_ATTRS], av[RASTER_MAX_ATTRS], da[RASTER_MAX_ATTRS];
+            int32_t lf[3] = {0, 0, 0}, dlf[3] = {0, 0, 0};
+            for (int k = 0; k < nattr; k++)
+            {
+                a[k] += da_dx[k] * n;
+                a_end[k] = a[k] * inv_end;
+                av[k] = a_start[k];
+                da[k] = (a_end[k] - a_start[k]) * inv_n;
+            }
+            if (lighting == LIGHTING_VERTEX)
+                for (int k = 0; k < 3; k++)
+                {
+                    lf[k] = (int32_t)(a_start[k] * 256.0f * FIXED_ONE);
+                    dlf[k] = (int32_t)((a_end[k] - a_start[k]) * 256.0f * FIXED_ONE * inv_n);
+                }
 
             for (const int end = i + n; i < end; i++)
             {
                 if (iw > zp[i])
                 {
                     zp[i] = iw;
-                    int tx = uf >> FIXED_SHIFT, ty = vf >> FIXED_SHIFT;
-                    uint32_t texel;
-                    if (pot)
-                        texel = pixels[((ty & h_mask) << w_shift) | (tx & w_mask)];
-                    else
-                        texel = pixels[wrap(ty, tex_h) * tex_w + wrap(tx, tex_w)];
 
-                    texel = color_shade(texel, param);
-                    cp[i] = (texel >> 24) == 0xFF ? texel : color_blend(texel, cp[i]);
+                    uint32_t base = p->color;
+                    if (tex_kind == TEX_POT)
+                        base = pixels[(((vf >> FIXED_SHIFT) & h_mask) << w_shift) | ((uf >> FIXED_SHIFT) & w_mask)];
+                    else if (tex_kind == TEX_NPOT)
+                        base = pixels[wrap(vf >> FIXED_SHIFT, tex_h) * tex_w + wrap(uf >> FIXED_SHIFT, tex_w)];
+
+                    int lr = flat_r, lg = flat_g, lb = flat_b;
+                    if (lighting == LIGHTING_VERTEX)
+                    {
+                        lr = lf[0] >> FIXED_SHIFT;
+                        lg = lf[1] >> FIXED_SHIFT;
+                        lb = lf[2] >> FIXED_SHIFT;
+                    }
+                    else if (lighting == LIGHTING_PIXEL)
+                    {
+                        vec3_t n3 = vec3_new(av[3], av[4], av[5]);
+                        n3 = vec3_mul(n3, 1.0f / sqrtf(vec3_dot(n3, n3) + 1e-20f));
+                        vec3_t l = lighting_eval(p->lights, p->active, p->active_count,
+                                                 vec3_new(av[0], av[1], av[2]), n3);
+                        lr = light_to_int(l.x);
+                        lg = light_to_int(l.y);
+                        lb = light_to_int(l.z);
+                    }
+
+                    uint32_t c = color_modulate(base, lr, lg, lb);
+                    cp[i] = (!textured || (c >> 24) == 0xFF) ? c : color_blend(c, cp[i]);
                 }
                 iw += diw_dx;
                 uf += duf;
                 vf += dvf;
+                if (lighting == LIGHTING_VERTEX)
+                    for (int k = 0; k < 3; k++)
+                        lf[k] += dlf[k];
+                else
+                    for (int k = 0; k < nattr; k++)
+                        av[k] += da[k];
             }
             u_start = u_end;
             v_start = v_end;
+            for (int k = 0; k < nattr; k++)
+                a_start[k] = a_end[k];
         }
     }
 }
 
-void raster_flat(const svert_t *a, const svert_t *b, const svert_t *c, uint32_t color)
-{
-    raster_triangle(a, b, c, 0, 0, 0, color);
-}
+#define RASTER_LIGHTING(tk)                                                        \
+    switch (p->lighting)                                                           \
+    {                                                                              \
+    case LIGHTING_VERTEX: raster_impl(a, b, c, tk, LIGHTING_VERTEX, p); break;     \
+    case LIGHTING_PIXEL: raster_impl(a, b, c, tk, LIGHTING_PIXEL, p); break;       \
+    default: raster_impl(a, b, c, tk, LIGHTING_TRIANGLE, p); break;                \
+    }
 
-void raster_textured(const svert_t *a, const svert_t *b, const svert_t *c, const texture_t *tex, uint32_t shade)
+void raster_triangle(const svert_t *a, const svert_t *b, const svert_t *c, const raster_params_t *p)
 {
-    if (tex->is_pot)
-        raster_triangle(a, b, c, 1, 1, tex, shade);
+    if (!p->tex)
+        RASTER_LIGHTING(TEX_NONE)
+    else if (p->tex->is_pot)
+        RASTER_LIGHTING(TEX_POT)
     else
-        raster_triangle(a, b, c, 1, 0, tex, shade);
+        RASTER_LIGHTING(TEX_NPOT)
 }
 
 void raster_line(float x0, float y0, float x1, float y1, uint32_t color)
@@ -209,5 +294,69 @@ void raster_line(float x0, float y0, float x1, float y1, uint32_t color)
             display.color[py * width + px] = color;
         x += x_inc;
         y += y_inc;
+    }
+}
+
+void raster_depth(float *buf, int size, const float *a, const float *b, const float *c)
+{
+    const float *t;
+    if (b[1] < a[1]) t = a, a = b, b = t;
+    if (c[1] < b[1]) t = b, b = c, c = t;
+    if (b[1] < a[1]) t = a, a = b, b = t;
+
+    // Most triangles of detailed models are smaller than a texel: leave
+    // before any division when no texel center is covered.
+    int y_start = (int)ceilf(a[1] - 0.5f);
+    int y_end = (int)ceilf(c[1] - 0.5f);
+    if (y_start < 0) y_start = 0;
+    if (y_end > size) y_end = size;
+    if (y_start >= y_end)
+        return;
+    float min_x = a[0], max_x = a[0];
+    if (b[0] < min_x) min_x = b[0];
+    if (b[0] > max_x) max_x = b[0];
+    if (c[0] < min_x) min_x = c[0];
+    if (c[0] > max_x) max_x = c[0];
+    if (ceilf(min_x - 0.5f) >= ceilf(max_x - 0.5f) || max_x < 0.0f || min_x > (float)size)
+        return;
+
+    const float dx1 = b[0] - a[0], dy1 = b[1] - a[1];
+    const float dx2 = c[0] - a[0], dy2 = c[1] - a[1];
+    const float det = dx1 * dy2 - dx2 * dy1;
+    if (!(fabsf(det) > 1e-6f))
+        return;
+    const float inv_det = 1.0f / det;
+    const float dz_dx = ((b[2] - a[2]) * dy2 - (c[2] - a[2]) * dy1) * inv_det;
+    const float dz_dy = ((c[2] - a[2]) * dx1 - (b[2] - a[2]) * dx2) * inv_det;
+
+    const float slope_long = dx2 / dy2;
+    const float slope_top = dy1 > 0 ? dx1 / dy1 : 0.0f;
+    const float slope_bottom = (c[1] - b[1]) > 0 ? (c[0] - b[0]) / (c[1] - b[1]) : 0.0f;
+    const int long_is_left = det > 0;
+
+    for (int y = y_start; y < y_end; y++)
+    {
+        const float py = (float)y + 0.5f;
+        const float x_long = a[0] + (py - a[1]) * slope_long;
+        const float x_short = py < b[1] ? a[0] + (py - a[1]) * slope_top
+                                        : b[0] + (py - b[1]) * slope_bottom;
+        const float xl = long_is_left ? x_long : x_short;
+        const float xr = long_is_left ? x_short : x_long;
+        int x_start = (int)ceilf(xl - 0.5f);
+        int x_end = (int)ceilf(xr - 0.5f);
+        if (x_start < 0) x_start = 0;
+        if (x_end > size) x_end = size;
+        if (x_start >= x_end)
+            continue;
+
+        // Written as an independent max per texel so it vectorizes (simd128).
+        const float z0 = a[2] + dz_dx * ((float)x_start + 0.5f - a[0]) + dz_dy * (py - a[1]);
+        float *restrict row = buf + (size_t)y * size + x_start;
+        const int n = x_end - x_start;
+        for (int i = 0; i < n; i++)
+        {
+            const float z = z0 + (float)i * dz_dx;
+            row[i] = z > row[i] ? z : row[i];
+        }
     }
 }
