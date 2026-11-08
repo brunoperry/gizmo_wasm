@@ -138,17 +138,23 @@ export class UI {
 
     const lighting = document.querySelector("#lighting");
     this.#lighting_btns = [
-      [Display.LightingModes.TRIANGLE, lighting.querySelector("#light-triangle")],
+      [
+        Display.LightingModes.TRIANGLE,
+        lighting.querySelector("#light-triangle"),
+      ],
       [Display.LightingModes.VERTEX, lighting.querySelector("#light-vertex")],
       [Display.LightingModes.PIXEL, lighting.querySelector("#light-pixel")],
     ];
     for (const [mode, button] of this.#lighting_btns) {
-      button.onclick = () => this.#listener({ action: UI.Actions.LIGHTING_MODE, mode });
+      button.onclick = () =>
+        this.#listener({ action: UI.Actions.LIGHTING_MODE, mode });
     }
     this.#gizmos_btn = lighting.querySelector("#light-gizmos");
-    this.#gizmos_btn.onclick = () => this.#listener({ action: UI.Actions.LIGHT_GIZMOS });
+    this.#gizmos_btn.onclick = () =>
+      this.#listener({ action: UI.Actions.LIGHT_GIZMOS });
     this.#shadows_btn = lighting.querySelector("#shadows");
-    this.#shadows_btn.onclick = () => this.#listener({ action: UI.Actions.SHADOWS });
+    this.#shadows_btn.onclick = () =>
+      this.#listener({ action: UI.Actions.SHADOWS });
 
     const filters = document.querySelector("#filters");
     this.#barrel_btn = filters.querySelector("#barrel");
@@ -208,7 +214,8 @@ export class UI {
   }
 
   set_lighting(mode, show_gizmos, shadows) {
-    for (const [m, button] of this.#lighting_btns) button.className = m === mode ? "toggled" : "";
+    for (const [m, button] of this.#lighting_btns)
+      button.className = m === mode ? "toggled" : "";
     this.#gizmos_btn.className = show_gizmos ? "toggled" : "";
     this.#shadows_btn.className = shadows ? "toggled" : "";
   }
@@ -309,4 +316,22 @@ export class UI {
     this.#logs.style.overflowY = "hidden";
     this.#is_console_open = false;
   }
+}
+
+const GizmoSelectTemplate = document.createElement("template");
+DLCSelectTemplate.innerHTML = `
+<label class="gizmo-select-label"></label>
+<slot name="gizmo-select-options"></slot>
+`;
+class GizmoSelect extends HTMLElement {
+  static observedAttributes = [];
+
+  constructor() {
+    super();
+
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.appendChild(GizmoSelectTemplate.content.cloneNode(true));
+  }
+
+  connectedCallback() {}
 }

@@ -21,7 +21,12 @@
     {
       "name": "inkeeper",
       "url": "./resources/meshes/inkeeper.usda",
-      "texture": "inkeeper"
+      "texture": "inkeeper",
+      "clips": {
+        "idle": [5, 30],
+        "run": [35, 50],
+        "attack": [55, 70]
+      }
     }
   ],
   "images": [
@@ -39,7 +44,7 @@
     },
     {
       "name": "inkeeper",
-      "url": "./resources/images/inkeeper_map.jpeg"
+      "url": "./resources/images/inkeeper_map.jpg"
     }
   ],
   "audios": []

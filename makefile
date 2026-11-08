@@ -1,6 +1,8 @@
 # Path to the WASI SDK (https://github.com/WebAssembly/wasi-sdk/releases).
 # Override with: make build WASI_SDK=/path/to/wasi-sdk
-WASI_SDK ?= $(HOME)/libs/wasi-sdk-25.0-x86_64-macos
+# Picks the build for this Mac's CPU (arm64 = Apple Silicon, else Intel).
+ARCH := $(shell uname -m)
+WASI_SDK ?= $(HOME)/libs/wasi-sdk-25.0-$(if $(filter arm64,$(ARCH)),arm64,x86_64)-macos
 
 CC = $(WASI_SDK)/bin/clang
 OUT = web/src/gizmo.wasm

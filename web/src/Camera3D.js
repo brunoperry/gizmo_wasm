@@ -20,6 +20,8 @@ export default class Camera3D {
   // Smoothing time constants, in seconds (0 = off). Bigger = softer.
   look_smoothing = 0.04; // mouse look
   move_smoothing = 0.12; // acceleration / braking
+  frame_smoothing = 0.08; // glide to the "frame all" position (F key)
+  frame_margin = 1.1; // > 1 leaves some room around the framed objects
 
   #pos;
   #dir;
@@ -31,6 +33,8 @@ export default class Camera3D {
   #target_yaw = 0;
   #target_pitch = 0;
   #velocity = vec3(0, 0, 0);
+  #frame_target = null; // where "frame all" is taking the camera
+  #frame_key_down = false;
 
   constructor(pos = vec3(0, 0, 0), dir = vec3(0, 0, 1.0), up = vec3(0, 1, 0)) {
     this.#pos = pos;
@@ -61,7 +65,70 @@ export default class Camera3D {
 
   update(delta) {
     this.#mouseUpdate(delta);
-    this.#checkInputs(delta);
+    // F frames everything, once per key press.
+    const frame_key = !!InputController.getKey(InputController.Key.F);
+    if (frame_key && !this.#frame_key_down) this.frame_all();
+    this.#frame_key_down = frame_key;
+    if (this.#frame_target && !this.#moving()) this.#frameUpdate(delta);
+    else {
+      this.#frame_target = null; // WASD takes over
+      this.#checkInputs(delta);
+    }
+  }
+
+  // Moves the camera back along its view direction until every object fits
+  // in the frustum (like "frame all" in Maya). The view direction is kept.
+  frame_all() {
+    const bounds = WASM.scene_bounds();
+    if (!bounds) return;
+    const { min, max } = bounds;
+    const c = vec3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+
+    // Camera basis: forward, right, up.
+    const f = this.#dir;
+    const r = vec3_cross(f, this.#UP);
+    const r_len = Math.hypot(r.x, r.y, r.z) || 1;
+    ((r.x /= r_len), (r.y /= r_len), (r.z /= r_len));
+    const u = vec3_cross(r, f);
+
+    // Each box corner, relative to the centre, seen from a camera at
+    // c - f * d, must satisfy |x| <= (d + z) * tan(fov / 2), same for y.
+    const tan_x = Math.tan(this.fov_x / 2) / this.frame_margin;
+    const tan_y = Math.tan(this.fov_y / 2) / this.frame_margin;
+    let d = 0, reach = 0;
+    for (let k = 0; k < 8; k++) {
+      const px = (k & 1 ? max[0] : min[0]) - c.x;
+      const py = (k & 2 ? max[1] : min[1]) - c.y;
+      const pz = (k & 4 ? max[2] : min[2]) - c.z;
+      const x = px * r.x + py * r.y + pz * r.z;
+      const y = px * u.x + py * u.y + pz * u.z;
+      const z = px * f.x + py * f.y + pz * f.z;
+      d = Math.max(d, Math.abs(x) / tan_x - z, Math.abs(y) / tan_y - z, this.z_near - z);
+      reach = Math.max(reach, Math.hypot(px, py, pz));
+    }
+    // Keep the far side of the scene inside the far plane.
+    if (d + reach > this.z_far) this.z_far = (d + reach) * 1.1;
+
+    this.#frame_target = vec3(c.x - f.x * d, c.y - f.y * d, c.z - f.z * d);
+    this.#velocity = vec3(0, 0, 0);
+  }
+
+  #moving() {
+    const K = InputController.Key;
+    return [K.W, K.A, K.S, K.D].some((k) => InputController.getKey(k));
+  }
+
+  #frameUpdate(delta) {
+    const t = this.#frame_target, p = this.#pos;
+    const next = vec3(
+      smooth(p.x, t.x, this.frame_smoothing, delta),
+      smooth(p.y, t.y, this.frame_smoothing, delta),
+      smooth(p.z, t.z, this.frame_smoothing, delta),
+    );
+    if (Math.hypot(t.x - next.x, t.y - next.y, t.z - next.z) < 1e-3) {
+      this.position = t;
+      this.#frame_target = null;
+    } else this.position = next;
   }
   #mouseUpdate(delta) {
     const { dx, dy } = InputController.consumeMouseDelta();

@@ -12,6 +12,7 @@ export default class InputController {
     ESC: 27,
     SPACE: 32,
     J: 74,
+    F: 70,
   };
   static Buttons = new Array(3);
   static Button = {

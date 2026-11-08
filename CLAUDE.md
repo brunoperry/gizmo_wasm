@@ -10,7 +10,7 @@ A 3D software renderer. The C code in `C/` compiles to `web/src/gizmo.wasm`, and
 
 ## Build
 - `make build`: wasi-sdk 25, target `wasm32-wasip1`, `-O3 -ffast-math -msimd128`.
-  - The SDK path defaults to `$(HOME)/libs/wasi-sdk-25.0-x86_64-macos`. Override it with `make build WASI_SDK=/path`.
+  - The SDK path defaults to `$(HOME)/libs/wasi-sdk-25.0-arm64-macos` on Apple Silicon and `…-x86_64-macos` on Intel (picked from `uname -m`). Override it with `make build WASI_SDK=/path`.
 - `make debug`: -O0 build with DWARF debug info.
 - `gizmo.wasm` is committed (and also listed in .gitignore). Rebuild it after any C change.
 - Under `-ffast-math`:
@@ -58,13 +58,12 @@ Done:
 - usda loader;
 - point, spot and directional lights, plus per-triangle/vertex/pixel modes;
 - shadows;
-- smoothed camera;
+- smoothed camera, with "frame all" on the F key (`Camera3D.frame_all`, using the world bounds from `scene_bounds` in C/gizmo.c);
 - skeletal animation with clips and crossfades;
-- normals computed at load time.
+- normals computed at load time;
+- inkeeper texture resized to 512² (`inkeeper_map.jpg`).
 
 Pending:
-- The **inkeeper clip frame ranges**: the user will provide them. They go in `web/resources/data.json` under the inkeeper entry: `"clips": { "name": [start, end] }`, using the file's frame numbers. Until then everything plays as the `"default"` clip (the whole animation, about 463 frames at 24 fps).
-- **`.usdc` / `.usdz` support**, planned for later. A usdc reader should produce the same prim tree as `USDA.parse`, so the extraction code can be reused.
-- **Possible improvements**, not requested yet:
-  - resize `inkeeper_map.jpeg` (1280², not a power of two, so it takes the slower raster path) to 1024²;
-  - a 3-layer blend so that interrupting a crossfade doesn't pop.
+- **More inkeeper clips.** The inkeeper entry in `web/resources/data.json` has `idle` [5, 30], `run` [35, 50] and `attack` [55, 70], in the file's frame numbers. The user will provide the rest of the ranges later. `"default"` still covers the whole animation (about 463 frames at 24 fps).
+- **`.usdc` / `.usdz` support**, postponed. A usdc reader should produce the same prim tree as `USDA.parse`, so the extraction code can be reused.
+- **Possible improvement**, not requested yet: a 3-layer blend so that interrupting a crossfade doesn't pop.

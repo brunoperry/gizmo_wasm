@@ -15,7 +15,7 @@ export default class TestScene extends Scene {
 
     // this.#city = Resources.get_objects("surfer_usd");
     // for (const obj of this.#city) this.add_obj3d(obj);
-    this.inkeeper = Resources.get_objects("inkeeper_usd");
+    this.inkeeper = Resources.get_objects("inkeeper");
     for (const obj of this.inkeeper) this.add_obj3d(obj);
 
     this.#light = new Light3D({
@@ -28,7 +28,7 @@ export default class TestScene extends Scene {
     this.add_light(this.#light);
 
     this.camera.position = vec3(0, 0, 20);
-    this.camera.rotation = vec3(0, 180, 0);
+    this.camera.direction = vec3(0, 0, -1);
   }
 
   update(delta) {

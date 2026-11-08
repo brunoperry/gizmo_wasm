@@ -46,6 +46,14 @@ export default class WASM {
     WASM.#c_module.update();
   }
 
+  // World-space box around every object: { min, max } as [x, y, z], or null
+  // if there's nothing to bound.
+  static scene_bounds() {
+    const b = new Float32Array(WASM.mem, WASM.#c_module.scene_bounds(), 7);
+    if (!b[6]) return null;
+    return { min: [b[0], b[1], b[2]], max: [b[3], b[4], b[5]] };
+  }
+
   static set_color_buffer(width, height) {
     return WASM.#check(WASM.#c_module.set_color_buffer(width, height), "color buffer");
   }

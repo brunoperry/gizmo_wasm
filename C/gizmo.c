@@ -194,6 +194,40 @@ EXPORT(obj_done) void obj_done(void)
 
 EXPORT(cam_done) void cam_done(void) { camera_ready = camera3d.position != NULL; }
 
+// World-space box around every object, for framing the camera: returns 7
+// floats, min xyz, max xyz, then 1 if there was anything to bound (else 0).
+// Skinned objects use the bounds of their last skinned pose.
+EXPORT(scene_bounds) float *scene_bounds(void)
+{
+    static float out[7];
+    float *lo = out, *hi = out + 3;
+    lo[0] = lo[1] = lo[2] = 1e30f; // no INFINITY under -ffast-math
+    hi[0] = hi[1] = hi[2] = -1e30f;
+    int found = 0;
+    for (int o = 0; o < total_objects; o++)
+    {
+        const object3d_t *obj = objects[o];
+        if (!obj->num_triangles)
+            continue;
+        const mat4_t m = object_model_matrix(obj);
+        const float *bmin = obj->bounds_min, *bmax = obj->bounds_max;
+        for (int k = 0; k < 8; k++)
+        {
+            vec3_t q = mat4_mul_point(&m, (k & 1) ? bmax[0] : bmin[0], (k & 2) ? bmax[1] : bmin[1],
+                                      (k & 4) ? bmax[2] : bmin[2]);
+            const float v[3] = {q.x, q.y, q.z};
+            for (int i = 0; i < 3; i++)
+            {
+                if (v[i] < lo[i]) lo[i] = v[i];
+                if (v[i] > hi[i]) hi[i] = v[i];
+            }
+        }
+        found = 1;
+    }
+    out[6] = (float)found;
+    return out;
+}
+
 EXPORT(update) void update(void)
 {
     if (!display.color || !display.render_mode || !camera_ready || !light_ready)
