@@ -239,6 +239,16 @@ static void render_map(shadow_t *s, const light_view_t *l, object3d_t *const *ob
     }
 }
 
+void shadows_release(uintptr_t mark)
+{
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        valid[i] = 0;
+        if (gz_after(shadows[i].map, mark))
+            shadows[i].map = NULL;
+    }
+}
+
 void shadows_render(lighting_t *lt, object3d_t *const *objects, int count)
 {
     for (int i = 0; i < lt->count; i++)

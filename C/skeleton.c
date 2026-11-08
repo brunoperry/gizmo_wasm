@@ -52,6 +52,14 @@ animator_t *animator_create(int skeleton_id)
     return a;
 }
 
+void skeletons_release(uintptr_t mark)
+{
+    while (total_animators > 0 && gz_after(animators[total_animators - 1], mark))
+        animators[--total_animators] = 0;
+    while (total_skeletons > 0 && gz_after(skeletons[total_skeletons - 1], mark))
+        skeletons[--total_skeletons] = 0;
+}
+
 animator_t *animator_get(int id) { return id >= 0 && id < total_animators ? animators[id] : 0; }
 int animator_count(void) { return total_animators; }
 

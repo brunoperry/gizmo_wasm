@@ -8,4 +8,8 @@
 // light_view_t.shadow at it (NULL for the others).
 void shadows_render(lighting_t *lights, object3d_t *const *objects, int count);
 
+// The scene changed: no cached map is valid, and maps allocated after `mark`
+// are gone (see gz_release).
+void shadows_release(uintptr_t mark);
+
 #endif

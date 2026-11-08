@@ -17,4 +17,8 @@ mat4_t object_model_matrix(const object3d_t *obj);
 // Draws every light as a wireframe icon (on top of the scene).
 void render_light_gizmos(const lighting_t *lights, const camera_frame_t *frame);
 
+// Grid on the ground plane (world y = 0) around the camera, hidden behind
+// what was already drawn (it writes no depth).
+void render_grid(const camera_frame_t *frame);
+
 #endif

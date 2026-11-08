@@ -34,6 +34,7 @@ export default class Display {
     this.#render_mode_buffer = WASM.set_render_mode_buffer();
 
     this.render_mode = Display.RenderModes.TEXTURED;
+    this.show_grid = true;
   }
 
   update() {
@@ -54,9 +55,9 @@ export default class Display {
     return this.#image_data;
   }
 
-  // The render mode buffer holds 4 ints: render mode, lighting mode, show light gizmos, shadows.
+  // The render mode buffer holds 5 ints: render mode, lighting mode, show light gizmos, shadows, show grid.
   #settings() {
-    return new Int32Array(WASM.mem, this.#render_mode_buffer, 4);
+    return new Int32Array(WASM.mem, this.#render_mode_buffer, 5);
   }
   get render_mode() {
     return this.#settings()[0];
@@ -81,6 +82,13 @@ export default class Display {
   }
   set shadows(val) {
     this.#settings()[3] = val ? 1 : 0;
+  }
+
+  get show_grid() {
+    return this.#settings()[4] !== 0;
+  }
+  set show_grid(val) {
+    this.#settings()[4] = val ? 1 : 0;
   }
 
   get lock_cursor() {

@@ -34,6 +34,12 @@ typedef struct
 // All rasterizers clip to the display bounds, so any input is memory-safe.
 void raster_triangle(const svert_t *a, const svert_t *b, const svert_t *c, const raster_params_t *p);
 void raster_line(float x0, float y0, float x1, float y1, uint32_t color);
+// Same, but only where nothing closer was drawn (doesn't write depth), and
+// faded: iw0, iw1 are 1 / view depth at each end (linear in screen space);
+// opacity = iw * fade_scale + fade_offset, clamped to 0..1.
+#define LINE_DEPTH_BIAS 1.002f
+void raster_line_depth(float x0, float y0, float iw0, float x1, float y1, float iw1, uint32_t color,
+                       float fade_scale, float fade_offset);
 
 // Shadow maps: rasterizes a triangle given as (x, y, value) into a size x size
 // float buffer, keeping the biggest value per texel. `value` must be linear

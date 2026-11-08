@@ -1,4 +1,5 @@
 import WASM from "./WASM.js";
+import Resources from "./Resources.js";
 import Light3D from "./Light3D.js";
 import Camera3D from "./Camera3D.js";
 import { vec3 } from "./math.js";
@@ -33,7 +34,8 @@ export default class Scene {
     this.objects_3d.push(obj3d);
     if (obj3d.animation) this.animators.add(obj3d.animation);
 
-    WASM.set_object_buffer(obj3d);
+    // The texture goes into wasm memory with the first object that uses it.
+    WASM.set_object_buffer(obj3d, Resources.texture_id(obj3d.texture));
   }
   set_camera(camera) {
     WASM.set_camera_buffer(camera);

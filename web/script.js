@@ -34,7 +34,18 @@ window.onload = async () => {
         ui.setAudio(engine.getAudioTrack(e.index));
         break;
       case UI.Actions.MESH:
-        console.log(e);
+        load(e.mesh, () => engine.load_model(e.mesh));
+        break;
+      case UI.Actions.OPEN_FILES:
+        load(e.files.map((f) => f.name).join(", "), async () => {
+          for (const warning of await engine.open_files(e.files)) ui.log_error(warning);
+        });
+        break;
+      case UI.Actions.GRID:
+        engine.show_grid = !engine.show_grid;
+        break;
+      case UI.Actions.HUD:
+        update_hud(); // show the current values right away, even while paused
         break;
     }
   });
@@ -52,6 +63,14 @@ window.onload = async () => {
       case Engine.States.LIGHTING_CHANGED:
         ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
         break;
+      case Engine.States.SCENE_CHANGED:
+        ui.set_scene(data.model);
+        update_hud();
+        ui.log_console(`Loaded ${data.name}.`);
+        break;
+      case Engine.States.DISPLAY_CHANGED:
+        ui.set_grid(engine.show_grid);
+        break;
       case Engine.States.FILTER_CHANGED:
         ui.set_filter(data);
         break;
@@ -63,26 +82,53 @@ window.onload = async () => {
         break;
       case Engine.States.READY:
         ui.enable();
-        ui.set_scene_name(engine.scene_name);
         ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
-        ui.set_scene_memory(engine.memory);
+        ui.set_grid(engine.show_grid);
+        update_hud();
         ui.log_console(data);
         break;
     }
   });
+  // Loads one scene at a time; errors go to the console bar.
+  let busy = false;
+  const load = async (what, task) => {
+    if (busy) return;
+    busy = true;
+    ui.log_console(`Loading ${what}...`);
+    try {
+      await task();
+    } catch (error) {
+      console.error(error);
+      ui.log_error(error.message);
+    } finally {
+      busy = false;
+    }
+  };
+
+  // HUD: refreshed on every rendered frame (C sends the triangle count).
+  let frame_info = null;
+  const update_hud = () => {
+    if (!ui.hud_visible) return;
+    const camera = engine.camera;
+    ui.update_hud({
+      scene: engine.scene_name ?? "-",
+      fps: engine.fps,
+      verts: frame_info?.verts,
+      tris: frame_info?.tris,
+      mem: engine.memory,
+      cam_pos: camera?.position,
+      cam_rot: camera?.rotation,
+    });
+  };
+  document.addEventListener("wasm_info", (e) => {
+    frame_info = e.detail;
+    update_hud();
+  });
+
   if (check_mobile()) {
     ui.log_error("No mobile support :(");
     return;
   }
-  document.addEventListener("wasm_info", (e) => {
-    ui.update({
-      fps: engine.fps,
-      verts: e.detail.verts,
-      tris: e.detail.tris,
-    });
-    e.stopPropagation();
-  });
-
   await engine.start_engine(TestScene);
   ui.start_ui();
 };

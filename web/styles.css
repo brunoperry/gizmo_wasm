@@ -1,3 +1,12 @@
+/* Fixedsys Excelsior: a pixel font, drawn for 16px (sharp at 16, 32...). */
+@font-face {
+  font-family: "Fixedsys Excelsior";
+  src: url("resources/font.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
   --color-a: #1a1a1a;
   --color-b: #525252;
@@ -10,6 +19,9 @@
   --overlay: #000000d5;
 
   --gap: 10px;
+
+  /* The app's font, with the system monospace as fallback. */
+  --font: "Fixedsys Excelsior", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
 
   --speed: 0.5s;
 }
@@ -32,8 +44,10 @@
 * {
   padding: 0;
   margin: 0;
-  font-family: system-ui, Roboto, Ubuntu, 'Open Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font);
+  /* No fake bold/italic or smoothing: they blur the pixel font. */
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -81,7 +95,7 @@ button {
   cursor: pointer;
   text-transform: uppercase;
   flex: 1;
-  font-weight: bold;
+  font-weight: normal;
   letter-spacing: 1px;
 }
 
@@ -89,101 +103,61 @@ button:active {
   scale: 0.94;
 }
 
-#hud {
-  display: grid;
-  grid-template-areas:
-    'scene models meminfo'
-    'counter counter rendermode';
-  grid-template-columns: auto 50%;
-  grid-template-rows: 32px 96px;
-  align-items: flex-end;
-  gap: var(--gap);
+#menu {
+  flex: none;
   transition: opacity var(--speed) ease-in-out;
 }
 
-#scene {
-  grid-area: scene;
-  justify-content: flex-start !important;
-  align-items: center;
-  gap: var(--gap);
-}
-
-#models {
-  grid-area: models;
-  height: 100%;
-  background-color: red;
-}
-
-#mem-info {
-  display: block;
-  grid-area: meminfo;
-  color: var(--color-d);
-  justify-self: flex-end;
-  align-self: center;
-  opacity: 0.5;
-}
-
-#counters {
-  grid-area: counter;
-  max-width: 192px;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-}
-
-#render-modes {
-  grid-area: rendermode;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--gap);
-}
-
-
-#hud label {
-  display: flex;
-  padding: 5px 0;
-  font-weight: bold;
-  color: var(--color-d);
-  justify-content: space-between;
-}
-
-#scene span {
-  color: var(--yellow) !important;
-  text-transform: uppercase;
-  font-weight: bold !important;
-  font-size: 24px;
-}
-
-#scene span.sub {
-  color: var(--color-c) !important;
-  text-transform: capitalize;
-  font-style: italic;
-  font-weight: normal !important;
-  font-size: 14px;
-}
-
-#hud label span {
-  font-weight: normal;
-  color: var(--color-d);
-}
-
-#render-modes button {
-  max-width: 64px;
-  max-height: 64px;
-}
 
 #canvas-container {
-  display: flex;
   position: relative;
-  aspect-ratio: auto;
+}
+
+/* A file dragged over the view (drop to open it). */
+#canvas-container.dropping {
+  outline: 2px dashed var(--yellow);
+  outline-offset: -2px;
+}
+
+#canvas-container>canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Scene, frame and camera info over the top-left corner of the view. */
+#hud {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 16px;
+  padding: 4px 8px;
+  color: var(--color-d);
+  font-size: 16px;
+  line-height: 20px;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: pre;
+}
+
+#hud.hidden {
+  display: none;
+}
+
+#hud dt {
+  color: var(--color-c);
+}
+
+#hud-scene {
+  color: var(--yellow);
 }
 
 #controls {
   display: grid;
-  grid-template-areas:
-    'filters lighting tracks'
-    'actions actions freqs';
-  grid-template-columns: auto auto 1fr;
+  grid-template-areas: 'actions tracks freqs';
+  grid-template-columns: auto 1fr 1fr;
   max-height: 128px;
   gap: var(--gap);
   transition: opacity var(--speed) ease-in-out;
@@ -266,48 +240,8 @@ button:active {
   color: var(--color-d);
   padding: 5px;
   flex: 1;
-  font-size: 13px;
-  font-family: "Lucida Console", "Courier New", monospace;
-}
-
-#filters {
-  grid-area: filters;
-  display: flex;
-  gap: var(--gap);
-  justify-content: flex-start;
-  align-items: center;
-  flex-wrap: nowrap;
-  transition: opacity var(--speed) ease-in-out;
-}
-
-#filters button {
-  color: whitesmoke;
-  max-width: none;
-  max-height: none;
-  flex: none;
-}
-
-#lighting {
-  grid-area: lighting;
-  margin-left: calc(var(--gap) * 3);
-  display: flex;
-  gap: var(--gap);
-  justify-content: flex-start;
-  align-items: center;
-  flex-wrap: nowrap;
-  transition: opacity var(--speed) ease-in-out;
-}
-
-#controls #lighting button {
-  color: whitesmoke;
-  max-width: none;
-  max-height: none;
-  flex: none;
-}
-
-/* The lights toggle is not a lighting mode: keep it apart. */
-#controls #lighting #light-gizmos {
-  margin-left: calc(var(--gap) * 3);
+  font-size: 16px;
+  font-family: var(--font);
 }
 
 button.toggled {
@@ -338,21 +272,6 @@ button.toggled {
     justify-content: space-around;
   }
 
-  #hud {
-    padding: 0 var(--gap);
-    grid-template-areas:
-      'scene scene'
-      'counter rendermode';
-  }
-
-  #mem-info {
-    display: none;
-  }
-
-  #counters {
-    max-width: 92px;
-  }
-
   #controls {
     justify-content: space-around;
   }
@@ -361,8 +280,7 @@ button.toggled {
     border: 1px solid var(--yellow);
   }
 
-  #controls button,
-  #render-modes button {
+  #controls button {
     max-width: 52px;
     max-height: 52px;
   }

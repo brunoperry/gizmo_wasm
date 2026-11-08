@@ -8,65 +8,58 @@
   <title>Gizmo Engine</title>
 
   <link rel="icon" type="image/x-icon" href="resources/images/ico.png" />
+  <link rel="preload" href="resources/font.woff" as="font" type="font/woff" crossorigin />
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="script.js"></script>
 </head>
 
 <body>
-  <div id="hud" class="invisible">
-    <label id="scene">Scene: <span></span></label>
-    <select id="models">
-    </select>
-    <p id="mem-info">wasm: <span id="mem"></span></p>
-    <div id="counters">
-      <label>FPS: <span id="fps"></span></label>
-      <label>Verts: <span id="verts"></span></label>
-      <label>Tris: <span id="tris"></span></label>
-    </div>
-    <div id="render-modes">
-      <button id="wireframe" aria-label="wireframe">
-        <svg width="100%" height="100%" viewBox="0 0 91 95" fill="none" stroke="#fff" stroke-width="3px">
-          <path d="M1.5,17.621l52.552,6.19l34.634,-20.854l-47.128,-1.457l-40.058,16.121Z" />
-          <path d="M5.874,76.281l46.686,16.346l31.825,-38.868l-41.699,-8.379l-36.812,30.901Z" />
-          <path d="M54.052,23.811l-1.492,68.816l31.825,-38.868l4.301,-50.802l-34.634,20.854Z" />
-          <path d="M42.686,45.38l-1.128,-43.88l-40.058,16.121l4.374,58.66l36.812,-30.901Z" />
-        </svg>
-      </button>
-      <button id="shaded" aria-label="shaded">
-        <svg width="100%" height="100%" viewBox="0 0 88 92">
-          <path fill="#ccc" d="M0,16.121l52.552,6.19l34.634,-20.854l-47.128,-1.457l-40.058,16.121Z" />
-          <path fill="#919191" d="M52.552,22.311l-1.492,68.816l31.825,-38.868l4.301,-50.802l-34.634,20.854Z" />
-          <path fill="#515151" d="M0,16.121l4.374,58.66l46.686,16.346l1.492,-68.816l-52.552,-6.19Z" />
-        </svg>
-      </button>
-      <button id="textured" class="toggled" aria-label="textured">
-        <svg width="100%" height="100%" viewBox="0 0 88 92">
-          <path fill="#ccc" d="M0,16.121l52.552,6.19l34.634,-20.854l-47.128,-1.457l-40.058,16.121Z" />
-          <path fill="#919191" d="M52.552,22.311l-1.492,68.816l31.825,-38.868l4.301,-50.802l-34.634,20.854Z" />
-          <path fill="#515151" d="M0,16.121l4.374,58.66l46.686,16.346l1.492,-68.816l-52.552,-6.19Z" />
-          <path
-            d="M33.843,85.099l17.217,6.028l12.472,-15.232l0.623,-17.1l-12.673,12.865l-18.046,-5.28l0.407,18.719Zm-30.758,-27.6l1.289,17.282l12.595,4.41l-0.847,-17.878l-13.037,-3.814Zm30.351,8.881l-0.505,-23.226l-17.854,-3.891l1.045,22.05l17.314,5.067Zm49.449,-14.121l1.155,-13.65l-8.028,8.15l-0.881,14.97l7.754,-9.47Zm-6.873,-5.5l1.237,-21.003l-12.272,10.481l-0.822,22.558l11.857,-12.036Zm-11.035,-10.522l0.798,-21.888l-19.026,-1.629l-14.323,7.221l0.505,23.213l19.079,4.158l12.967,-11.075Zm-49.809,-26.22l13.577,1.162l-14.86,6.578l0.488,0.057l0.704,21.449l-13.572,-2.959l-1.505,-20.183l15.168,-6.104Zm45.912,-4.521l9.059,-4.566l17.047,0.527l-1.443,17.044l-8.494,7.255l1.118,-18.99l-17.287,-1.27Zm-32.335,5.646l14.848,-6.708l17.487,1.062l-14.331,7.224l-18.004,-1.578Zm14.818,-6.695l-12.795,-0.708l9.29,-3.739l12.494,0.386l-8.989,4.061Z" />
-        </svg>
-      </button>
-    </div>
+  <gizmo-menubar id="menu" class="invisible">
+    <gizmo-menu label="Scene">
+      <gizmo-menu label="Models" id="menu-models"></gizmo-menu>
+      <gizmo-menu-item name="open" title="Pick a model (.usda, .obj, .fbx) together with its textures">Open file...</gizmo-menu-item>
+    </gizmo-menu>
+    <gizmo-menu label="Shading">
+      <gizmo-menu label="Modes">
+        <gizmo-menu-item type="radio" name="lighting-mode" value="TRIANGLE" title="Lighting computed once per triangle">Triangle</gizmo-menu-item>
+        <gizmo-menu-item type="radio" name="lighting-mode" value="VERTEX" title="Lighting computed per vertex and interpolated">Vertex</gizmo-menu-item>
+        <gizmo-menu-item type="radio" name="lighting-mode" value="PIXEL" title="Lighting computed per pixel">Pixel</gizmo-menu-item>
+      </gizmo-menu>
+      <gizmo-menu-item type="checkbox" name="wireframe">Wireframe</gizmo-menu-item>
+      <gizmo-menu-item type="checkbox" name="textured" checked>Textured</gizmo-menu-item>
+    </gizmo-menu>
+    <gizmo-menu label="Lighting">
+      <gizmo-menu-item type="checkbox" name="lights" title="Show / hide the lights">Lights</gizmo-menu-item>
+      <gizmo-menu-item type="checkbox" name="shadows" title="Shadows on / off">Shadows</gizmo-menu-item>
+    </gizmo-menu>
+    <gizmo-menu label="Display">
+      <gizmo-menu-item type="checkbox" name="grid" title="Show / hide the ground grid">Grid</gizmo-menu-item>
+      <gizmo-menu-item type="checkbox" name="hud" title="Show / hide scene, frame and camera info">HUD</gizmo-menu-item>
+    </gizmo-menu>
+    <gizmo-menu label="Filters">
+      <gizmo-menu-item type="checkbox" name="filter" value="barrel">Barrel</gizmo-menu-item>
+      <gizmo-menu-item type="checkbox" name="filter" value="fisheye">Fisheye</gizmo-menu-item>
+    </gizmo-menu>
+  </gizmo-menubar>
+  <input type="file" id="open-file" multiple hidden
+    accept=".usda,.usd,.usdc,.usdz,.obj,.mtl,.fbx,image/*" />
+  <div id="canvas-container">
+    <canvas width="320" height="240"></canvas>
+    <dl id="hud" class="hidden">
+      <dt>Scene</dt><dd id="hud-scene"></dd>
+      <dt>FPS</dt><dd id="hud-fps"></dd>
+      <dt>Verts</dt><dd id="hud-verts"></dd>
+      <dt>Tris</dt><dd id="hud-tris"></dd>
+      <dt>Mem</dt><dd id="hud-mem"></dd>
+      <dt>Cam pos</dt><dd id="hud-cam-pos"></dd>
+      <dt>Cam rot</dt><dd id="hud-cam-rot"></dd>
+    </dl>
   </div>
-  <canvas width="320" height="240"></canvas>
   <div id="console">
     <div id="logs"></div>
   </div>
 
   <div id="controls" class="invisible">
-    <div id="filters">
-      <button id="barrel">BARREL</button>
-      <button id="fisheye">FISHEYE</button>
-    </div>
-    <div id="lighting">
-      <button id="light-triangle" title="Lighting computed once per triangle">TRIANGLE</button>
-      <button id="light-vertex" title="Lighting computed per vertex and interpolated">VERTEX</button>
-      <button id="light-pixel" title="Lighting computed per pixel">PIXEL</button>
-      <button id="light-gizmos" title="Show / hide the lights">LIGHTS</button>
-      <button id="shadows" title="Shadows on / off">SHADOWS</button>
-    </div>
     <div id="actions">
       <button id="previous" style="display: none" aria-label="previous">
         <svg width="100%" height="100%" viewBox="0 0 78 92" fill="var(--color-d)">

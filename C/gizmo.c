@@ -35,10 +35,10 @@ EXPORT(set_color_buffer) uint32_t *set_color_buffer(int width, int height)
     return display_create(width, height);
 }
 
-// 4 ints written by javascript: render mode, lighting mode, show light gizmos, shadows.
+// 5 ints written by javascript: render mode, lighting mode, show light gizmos, shadows, show grid.
 EXPORT(set_render_mode_buffer) int32_t *set_render_mode_buffer(void)
 {
-    display.render_mode = gz_alloc(4 * sizeof(int32_t));
+    display.render_mode = gz_alloc(5 * sizeof(int32_t));
     return display.render_mode;
 }
 
@@ -192,6 +192,35 @@ EXPORT(obj_done) void obj_done(void)
     objects[total_objects++] = obj;
 }
 
+// Scenes: everything allocated after scene_begin() (camera, lights, objects,
+// skeletons, textures, shadow maps...) belongs to the scene, and
+// scene_clear() frees it all, so another scene can be loaded in its place.
+static uintptr_t scene_mark = 0;
+
+EXPORT(scene_begin) void scene_begin(void) { scene_mark = gz_mark(); }
+
+// Returns how many textures are left (the ones loaded before scene_begin).
+EXPORT(scene_clear) int scene_clear(void)
+{
+    if (!scene_mark)
+        return texture_count();
+    total_objects = 0;
+    pending_object = NULL;
+    if (gz_after(light_data, scene_mark))
+    {
+        light_data = NULL;
+        light_ready = 0;
+    }
+    if (gz_after(camera3d.position, scene_mark))
+        camera_ready = 0;
+    textures_release(scene_mark);
+    skeletons_release(scene_mark);
+    shadows_release(scene_mark);
+    display_release(scene_mark);
+    gz_release(scene_mark);
+    return texture_count();
+}
+
 EXPORT(cam_done) void cam_done(void) { camera_ready = camera3d.position != NULL; }
 
 // World-space box around every object, for framing the camera: returns 7
@@ -250,10 +279,19 @@ EXPORT(update) void update(void)
     if (display.render_mode[3] && mode != RENDER_WIRED)
         shadows_render(&lights, objects, total_objects);
 
+    // Wireframes write no depth: draw the grid first so it stays behind them.
+    // Solid objects hide it through the depth buffer.
+    const int grid = display.render_mode[4];
+    if (grid && mode == RENDER_WIRED)
+        render_grid(&frame);
+
     int lighting = display.render_mode[1];
     int total_tris = 0;
     for (int i = 0; i < total_objects; i++)
         total_tris += render_object(objects[i], &frame, &lights, mode, lighting);
+
+    if (grid && mode != RENDER_WIRED)
+        render_grid(&frame);
 
     if (display.render_mode[2])
         render_light_gizmos(&lights, &frame);

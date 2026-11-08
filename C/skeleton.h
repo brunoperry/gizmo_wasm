@@ -66,6 +66,8 @@ int skeleton_count(void);
 animator_t *animator_create(int skeleton_id);
 animator_t *animator_get(int id);
 int animator_count(void);
+// Forgets the skeletons and animators allocated after `mark` (see gz_release).
+void skeletons_release(uintptr_t mark);
 
 // Recomputes the pose of every animator whose state changed.
 void animators_update(void);

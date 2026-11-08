@@ -297,6 +297,80 @@ void raster_line(float x0, float y0, float x1, float y1, uint32_t color)
     }
 }
 
+// Straight-alpha "over": src with opacity alpha on top of dst.
+static uint32_t blend_over(uint32_t src, uint32_t dst, float alpha)
+{
+    const float da = (float)(dst >> 24) * (1.0f / 255.0f) * (1.0f - alpha);
+    const float oa = alpha + da;
+    const float ws = alpha / oa, wd = da / oa;
+    uint32_t out = (uint32_t)(oa * 255.0f + 0.5f) << 24;
+    for (int sh = 0; sh < 24; sh += 8)
+        out |= (uint32_t)((float)((src >> sh) & 0xffu) * ws + (float)((dst >> sh) & 0xffu) * wd + 0.5f) << sh;
+    return out;
+}
+
+#define FADE_LEVELS 16
+
+void raster_line_depth(float x0, float y0, float iw0, float x1, float y1, float iw1, uint32_t color,
+                       float fade_scale, float fade_offset)
+{
+    const int width = display.width, height = display.height;
+    float dx = x1 - x0, dy = y1 - y0;
+    float adx = fabsf(dx), ady = fabsf(dy);
+    int steps = (int)(adx > ady ? adx : ady);
+    if (steps > width + height)
+        steps = width + height;
+
+    // The clear color is translucent (the page shows through), so fading over
+    // it needs a real "over" blend: done once per opacity level, not per pixel.
+    // Cached: consecutive lines usually share their color.
+    static uint32_t over_clear[FADE_LEVELS + 1], cached_color, cached_clear;
+    static int cached = 0;
+    const uint32_t clear = display.clear_color;
+    if (!cached || cached_color != color || cached_clear != clear)
+    {
+        for (int l = 0; l <= FADE_LEVELS; l++)
+            over_clear[l] = blend_over(color, clear, (float)l / FADE_LEVELS);
+        cached_color = color, cached_clear = clear, cached = 1;
+    }
+
+    const float inv = steps ? 1.0f / steps : 0.0f;
+    const float x_inc = dx * inv, y_inc = dy * inv, iw_inc = (iw1 - iw0) * inv;
+    const uint32_t src_rb = color & 0x00ff00ffu, src_g = (color >> 8) & 0xffu;
+    float x = x0, y = y0, iw = iw0;
+    for (int i = 0; i <= steps; i++, x += x_inc, y += y_inc, iw += iw_inc)
+    {
+        int px = (int)x, py = (int)y;
+        if ((unsigned)px >= (unsigned)width || (unsigned)py >= (unsigned)height)
+            continue;
+        const int k = py * width + px;
+        // A little in front, so lines lying on a surface win over it.
+        if (iw * LINE_DEPTH_BIAS < display.depth[k])
+            continue;
+        const float alpha = iw * fade_scale + fade_offset;
+        if (alpha >= 1.0f)
+        {
+            display.color[k] = color;
+            continue;
+        }
+        if (!(alpha > 0.0f))
+            continue;
+        const uint32_t dst = display.color[k];
+        if (dst == clear)
+            display.color[k] = over_clear[(int)(alpha * FADE_LEVELS + 0.5f)];
+        else if (dst >> 24 == 0xffu)
+        {
+            // Opaque pixel: plain mix, two channels at a time (8.8 fixed point).
+            const uint32_t a = (uint32_t)(alpha * 256.0f), b = 256u - a;
+            const uint32_t rb = ((src_rb * a + (dst & 0x00ff00ffu) * b) >> 8) & 0x00ff00ffu;
+            const uint32_t g = (src_g * a + ((dst >> 8) & 0xffu) * b) & 0xff00u;
+            display.color[k] = 0xff000000u | rb | g;
+        }
+        else
+            display.color[k] = blend_over(color, dst, alpha);
+    }
+}
+
 void raster_depth(float *buf, int size, const float *a, const float *b, const float *c)
 {
     const float *t;

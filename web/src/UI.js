@@ -1,5 +1,6 @@
 import Display from "./Display.js";
 import Resources from "./Resources.js";
+import "./GizmoMenu.js"; // <gizmo-menubar>, <gizmo-menu>, <gizmo-menu-item>
 
 export class UI {
   static Actions = {
@@ -12,31 +13,29 @@ export class UI {
     SHADOWS: "shadows",
     GET_AUDIO: "getaudio",
     MESH: "mesh",
+    GRID: "grid",
+    HUD: "hud",
+    OPEN_FILES: "openfiles",
   };
   #listener = null;
 
-  #hud = null;
+  #menu = null;
   #controls = null;
-
-  #scene_label = null;
-  #fps_label = null;
-  #tris_label = null;
-  #verts_label = null;
-  #mem_label = null;
 
   #play_pause_btn = null;
   #next_btn = null;
-  #wireframe_btn = null;
-  #shaded_btn = null;
-  #textured_btn = null;
-  #fisheye_btn = null;
-  #barrel_btn = null;
-  #lighting_btns = null;
-  #gizmos_btn = null;
-  #shadows_btn = null;
+  // Shading > Textured is remembered while wireframe is on (it's disabled then).
+  #textured = true;
 
   #console = null;
   #logs = null;
+
+  // Display > HUD: scene, frame and camera info over the view.
+  #hud = null;
+  #hud_fields = null;
+  #hud_visible = false;
+
+  #file_input = null;
 
   #is_ready = false;
   #is_console_open = false;
@@ -50,43 +49,41 @@ export class UI {
   }
 
   enable() {
-    this.#hud.className = "";
+    this.#menu.className = "";
     this.#controls.className = "";
+    this.#show_hud(this.#hud_visible);
     this.finishUI();
   }
 
   disable() {
-    this.#hud.className = "invisible";
+    this.#menu.className = "invisible";
     this.#controls.className = "invisible";
+    this.#hud.classList.add("hidden");
   }
 
+  // Lists the models in Scene > Models (value: the data.json entry name).
   start_ui() {
-    const modelsSelect = document.querySelector("#models");
-    Resources.DATA.meshes.forEach((mesh) => {
-      const optionElem = document.createElement("option");
-      optionElem.value = mesh.url;
-      optionElem.innerText = mesh.name;
-      modelsSelect.appendChild(optionElem);
-    });
+    const models = this.#menu.querySelector("#menu-models");
+    for (const mesh of Resources.DATA.meshes) {
+      const item = document.createElement("gizmo-menu-item");
+      item.type = "radio";
+      item.name = "model";
+      item.value = mesh.name;
+      item.textContent = mesh.name;
+      models.appendChild(item);
+    }
+  }
 
-    modelsSelect.onchange = () => {
-      this.#listener({
-        action: UI.Actions.MESH,
-        mesh: modelsSelect.value,
-      });
-      console.log("change");
-    };
+  // A scene was loaded: checks its model in Scene > Models (model = the
+  // data.json entry, null for other scenes, e.g. a file from the computer).
+  set_scene(model) {
+    for (const item of this.#menu_items("model")) item.checked = item.value === model;
+    this.#check_is_ready();
   }
 
   #setupUI() {
-    this.#hud = document.querySelector("#hud");
+    this.#menu = document.querySelector("#menu");
     this.#controls = document.querySelector("#controls");
-
-    this.#scene_label = document.querySelector("#scene").querySelector("span");
-    this.#fps_label = document.querySelector("#fps");
-    this.#verts_label = document.querySelector("#verts");
-    this.#tris_label = document.querySelector("#tris");
-    this.#mem_label = document.querySelector("#mem");
 
     this.#play_pause_btn = document.querySelector("#playpause");
     this.#play_pause_btn.onclick = () => {
@@ -103,74 +100,92 @@ export class UI {
       });
     };
 
-    this.#wireframe_btn = document.querySelector("#wireframe");
-    this.#wireframe_btn.onclick = () => {
-      if (this.#is_console_open) this.#close_console();
-      this.#listener({
-        action: UI.Actions.RENDER_MODE,
-        mode: Display.RenderModes.WIRED,
-      });
-    };
-
-    this.#shaded_btn = document.querySelector("#shaded");
-    this.#shaded_btn.onclick = () => {
-      if (this.#is_console_open) this.#close_console();
-      this.#listener({
-        action: UI.Actions.RENDER_MODE,
-        mode: Display.RenderModes.SHADED,
-      });
-    };
-
-    this.#textured_btn = document.querySelector("#textured");
-    this.#textured_btn.onclick = () => {
-      if (this.#is_console_open) this.#close_console();
-      this.#listener({
-        action: UI.Actions.RENDER_MODE,
-        mode: Display.RenderModes.TEXTURED,
-      });
-    };
-
     this.#console = document.querySelector("#console");
     this.#console.onclick = () => {
       !this.#is_console_open ? this.#open_console() : this.#close_console();
     };
     this.#logs = document.querySelector("#logs");
 
-    const lighting = document.querySelector("#lighting");
-    this.#lighting_btns = [
-      [
-        Display.LightingModes.TRIANGLE,
-        lighting.querySelector("#light-triangle"),
-      ],
-      [Display.LightingModes.VERTEX, lighting.querySelector("#light-vertex")],
-      [Display.LightingModes.PIXEL, lighting.querySelector("#light-pixel")],
-    ];
-    for (const [mode, button] of this.#lighting_btns) {
-      button.onclick = () =>
-        this.#listener({ action: UI.Actions.LIGHTING_MODE, mode });
-    }
-    this.#gizmos_btn = lighting.querySelector("#light-gizmos");
-    this.#gizmos_btn.onclick = () =>
-      this.#listener({ action: UI.Actions.LIGHT_GIZMOS });
-    this.#shadows_btn = lighting.querySelector("#shadows");
-    this.#shadows_btn.onclick = () =>
-      this.#listener({ action: UI.Actions.SHADOWS });
+    this.#hud = document.querySelector("#hud");
+    const field = (id) => this.#hud.querySelector(`#hud-${id}`);
+    this.#hud_fields = {
+      scene: field("scene"),
+      fps: field("fps"),
+      verts: field("verts"),
+      tris: field("tris"),
+      mem: field("mem"),
+      cam_pos: field("cam-pos"),
+      cam_rot: field("cam-rot"),
+    };
 
-    const filters = document.querySelector("#filters");
-    this.#barrel_btn = filters.querySelector("#barrel");
-    this.#barrel_btn.onclick = () => {
-      this.#listener({
-        action: UI.Actions.FILTER,
-        filter: "barrel",
-      });
+    this.#menu.addEventListener("menuselect", (e) => this.#on_menu(e.detail));
+
+    // Scene > Open file... and files dropped on the view.
+    this.#file_input = document.querySelector("#open-file");
+    this.#file_input.onchange = () => {
+      const files = [...this.#file_input.files];
+      this.#file_input.value = ""; // picking the same files again still fires
+      if (files.length) this.#listener({ action: UI.Actions.OPEN_FILES, files });
     };
-    this.#fisheye_btn = filters.querySelector("#fisheye");
-    this.#fisheye_btn.onclick = () => {
-      this.#listener({
-        action: UI.Actions.FILTER,
-        filter: "fisheye",
-      });
-    };
+    const view = document.querySelector("#canvas-container");
+    view.addEventListener("dragover", (e) => {
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      view.classList.add("dropping");
+    });
+    view.addEventListener("dragleave", (e) => {
+      if (!view.contains(e.relatedTarget)) view.classList.remove("dropping");
+    });
+    view.addEventListener("drop", (e) => {
+      e.preventDefault();
+      view.classList.remove("dropping");
+      const files = [...e.dataTransfer.files];
+      if (files.length && !this.#menu.classList.contains("invisible")) {
+        this.#listener({ action: UI.Actions.OPEN_FILES, files });
+      }
+    });
+  }
+
+  #on_menu({ name, value, checked }) {
+    if (this.#is_console_open) this.#close_console();
+    switch (name) {
+      case "model":
+        this.#listener({ action: UI.Actions.MESH, mesh: value });
+        break;
+      case "open":
+        this.#file_input.click(); // still inside the click/key event, as browsers require
+        break;
+      case "lighting-mode":
+        this.#listener({ action: UI.Actions.LIGHTING_MODE, mode: Display.LightingModes[value] });
+        break;
+      case "wireframe":
+        this.#listener({ action: UI.Actions.RENDER_MODE, mode: checked ? Display.RenderModes.WIRED : this.#solid_mode() });
+        break;
+      case "textured":
+        this.#textured = checked;
+        this.#listener({ action: UI.Actions.RENDER_MODE, mode: this.#solid_mode() });
+        break;
+      case "lights":
+        this.#listener({ action: UI.Actions.LIGHT_GIZMOS });
+        break;
+      case "shadows":
+        this.#listener({ action: UI.Actions.SHADOWS });
+        break;
+      case "filter":
+        this.#listener({ action: UI.Actions.FILTER, filter: value });
+        break;
+      case "grid":
+        this.#listener({ action: UI.Actions.GRID });
+        break;
+      case "hud":
+        this.#show_hud(checked);
+        this.#listener({ action: UI.Actions.HUD, visible: checked });
+        break;
+    }
+  }
+  #solid_mode() {
+    return this.#textured ? Display.RenderModes.TEXTURED : Display.RenderModes.SHADED;
   }
   finishUI() {
     this.#freqCanvas = document.querySelector("#freqs").querySelector("canvas");
@@ -213,37 +228,76 @@ export class UI {
     this.log_console(message, "var(--red)");
   }
 
-  set_lighting(mode, show_gizmos, shadows) {
-    for (const [m, button] of this.#lighting_btns)
-      button.className = m === mode ? "toggled" : "";
-    this.#gizmos_btn.className = show_gizmos ? "toggled" : "";
-    this.#shadows_btn.className = shadows ? "toggled" : "";
+  // Menu check marks follow the engine's state.
+  #menu_items(name) {
+    return this.#menu.querySelectorAll(`gizmo-menu-item[name="${name}"]`);
+  }
+  #check(name, checked) {
+    for (const item of this.#menu_items(name)) item.checked = checked;
   }
 
-  // Highlights the filter that is applied to every frame (null = none).
+  set_grid(show_grid) {
+    this.#check("grid", show_grid);
+  }
+
+  get hud_visible() {
+    return this.#hud_visible;
+  }
+  #show_hud(visible) {
+    this.#hud_visible = visible;
+    this.#hud.classList.toggle("hidden", !visible);
+    this.#check("hud", visible);
+  }
+  // Called every frame while the HUD is visible: only touches the text that
+  // changed (writing text forces style/layout work).
+  update_hud({ scene, fps, verts, tris, mem, cam_pos, cam_rot }) {
+    const f = this.#hud_fields;
+    UI.#set_text(f.scene, scene);
+    UI.#set_text(f.fps, fps);
+    UI.#set_text(f.verts, verts ?? "-");
+    UI.#set_text(f.tris, tris ?? "-");
+    UI.#set_text(f.mem, `~${Math.round(mem / 1000 / 1000)}mb`);
+    UI.#set_text(f.cam_pos, cam_pos ? UI.#vec(cam_pos, 2) : "-");
+    UI.#set_text(f.cam_rot, cam_rot ? UI.#vec(cam_rot, 1) : "-");
+  }
+  // Fixed-width columns so the numbers don't jump around.
+  static #vec(v, decimals) {
+    const n = (x) => (Math.abs(x) < 0.5 * 10 ** -decimals ? 0 : x).toFixed(decimals).padStart(7);
+    return `${n(v.x)} ${n(v.y)} ${n(v.z)}`;
+  }
+  static #set_text(element, value) {
+    const text = String(value);
+    if (element.textContent !== text) element.textContent = text;
+  }
+
+  set_lighting(mode, show_gizmos, shadows) {
+    for (const item of this.#menu_items("lighting-mode")) item.checked = Display.LightingModes[item.value] === mode;
+    this.#check("lights", show_gizmos);
+    this.#check("shadows", shadows);
+  }
+
+  // Checks the filter that is applied to every frame (null = none).
   set_filter(filter) {
-    this.#fisheye_btn.className = filter === "fisheye" ? "toggled" : "";
-    this.#barrel_btn.className = filter === "barrel" ? "toggled" : "";
+    for (const item of this.#menu_items("filter")) item.checked = item.value === filter;
     this.log_console(filter ? `Filter: ${filter}.` : "Filter off.");
   }
 
   set_render_mode(mode) {
-    this.#wireframe_btn.className = "";
-    this.#shaded_btn.className = "";
-    this.#textured_btn.className = "";
+    const wired = mode === Display.RenderModes.WIRED;
+    if (!wired) this.#textured = mode === Display.RenderModes.TEXTURED;
+    this.#check("wireframe", wired);
+    this.#check("textured", this.#textured);
+    for (const item of this.#menu_items("textured")) item.disabled = wired;
 
     this.#check_is_ready();
     switch (mode) {
       case Display.RenderModes.WIRED:
-        this.#wireframe_btn.className = "toggled";
         this.log_console("Wireframed.");
         break;
       case Display.RenderModes.SHADED:
-        this.#shaded_btn.className = "toggled";
         this.log_console("Shaded.");
         break;
       case Display.RenderModes.TEXTURED:
-        this.#textured_btn.className = "toggled";
         this.log_console("Textured.");
         break;
     }
@@ -268,35 +322,6 @@ export class UI {
     }
   }
 
-  update(data) {
-    // Called every frame: writing innerText forces style/layout work, so
-    // only write when the value actually changed.
-    UI.#set_text(this.#fps_label, data.fps);
-    UI.#set_text(this.#verts_label, data.verts);
-    UI.#set_text(this.#tris_label, data.tris);
-
-    this.updateFreqCanvas();
-  }
-
-  static #set_text(element, value) {
-    const text = String(value);
-    if (element.textContent !== text) element.textContent = text;
-  }
-
-  set_scene_name(name, subtitle = null) {
-    this.#scene_label.innerText = name;
-
-    if (subtitle) {
-      const sub = document.createElement("span");
-      sub.className = "sub";
-      sub.innerText = ` (${subtitle})`;
-      this.#scene_label.appendChild(sub);
-    }
-  }
-  set_scene_memory(mem) {
-    this.#mem_label.innerText = `~${Math.round(mem / 1000 / 1000)}mb`;
-  }
-
   #check_is_ready() {
     if (!this.#is_ready) {
       const cnvs = document.querySelector("canvas");
@@ -316,22 +341,4 @@ export class UI {
     this.#logs.style.overflowY = "hidden";
     this.#is_console_open = false;
   }
-}
-
-const GizmoSelectTemplate = document.createElement("template");
-DLCSelectTemplate.innerHTML = `
-<label class="gizmo-select-label"></label>
-<slot name="gizmo-select-options"></slot>
-`;
-class GizmoSelect extends HTMLElement {
-  static observedAttributes = [];
-
-  constructor() {
-    super();
-
-    this.attachShadow({ mode: "open" });
-    this.shadowRoot.appendChild(GizmoSelectTemplate.content.cloneNode(true));
-  }
-
-  connectedCallback() {}
 }

@@ -46,6 +46,18 @@ export default class WASM {
     WASM.#c_module.update();
   }
 
+  // Everything allocated from now on belongs to the scene (see scene_clear).
+  static scene_begin() {
+    WASM.#c_module.scene_begin();
+  }
+  // Frees the scene: camera, lights, objects, skeletons, textures... (all
+  // created after scene_begin). Returns how many textures are left (0).
+  static scene_clear() {
+    WASM.#skeleton_ids = new WeakMap();
+    WASM.#animator_ids = new WeakMap();
+    return WASM.#c_module.scene_clear();
+  }
+
   // World-space box around every object: { min, max } as [x, y, z], or null
   // if there's nothing to bound.
   static scene_bounds() {
@@ -124,13 +136,14 @@ export default class WASM {
     if (skin.bind_normals) new Float32Array(WASM.mem, bind_normals, skin.bind_normals.length).set(skin.bind_normals);
   }
 
-  static set_object_buffer(obj3D) {
+  // texture_id: see Resources.texture_id (-1 = untextured).
+  static set_object_buffer(obj3D, texture_id = -1) {
     const obj_buffer = WASM.#check(
       WASM.#c_module.set_object_buffer(
         obj3D.vertices.length,
         obj3D.uvs.length,
         obj3D.normals.length,
-        obj3D.texture ? obj3D.texture.id : -1
+        texture_id
       ),
       `object ${obj3D.name}`
     );

@@ -5,6 +5,9 @@
 
 extern unsigned char __heap_base;
 static uintptr_t heap_ptr = 0;
+// Everything below this was handed out at some point; above it, memory is
+// still as fresh pages come (zeroed).
+static uintptr_t high_water = 0;
 
 void *gz_alloc(size_t size)
 {
@@ -24,6 +27,23 @@ void *gz_alloc(size_t size)
             return NULL;
     }
     heap_ptr = end;
-    // Fresh wasm pages are zeroed and memory is never reused, so no memset needed.
+    // Fresh wasm pages are zeroed: only memory reused after gz_release needs it.
+    if (p < high_water)
+        __builtin_memset((void *)p, 0, (end < high_water ? end : high_water) - p);
+    if (end > high_water)
+        high_water = end;
     return (void *)p;
+}
+
+uintptr_t gz_mark(void)
+{
+    if (!heap_ptr)
+        heap_ptr = (uintptr_t)&__heap_base;
+    return heap_ptr;
+}
+
+void gz_release(uintptr_t mark)
+{
+    if (mark && mark <= heap_ptr)
+        heap_ptr = mark;
 }

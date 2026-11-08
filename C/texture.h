@@ -19,5 +19,8 @@ typedef struct
 texture_t *texture_create(int width, int height);
 // Returns NULL for invalid ids.
 texture_t *texture_get(int id);
+int texture_count(void);
+// Forgets the textures allocated after `mark` (see gz_release).
+void textures_release(uintptr_t mark);
 
 #endif

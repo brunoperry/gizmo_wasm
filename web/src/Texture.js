@@ -18,6 +18,11 @@ export default class Texture {
     new Uint8ClampedArray(WASM.mem, buffer, this.length).set(this.data);
   }
 
+  // The image it was made from ({ name, width, height, data }).
+  get image() {
+    return this.#image_data;
+  }
+
   get length() {
     return this.#image_data.data.data.length;
   }

@@ -22,6 +22,7 @@
       "name": "inkeeper",
       "url": "./resources/meshes/inkeeper.usda",
       "texture": "inkeeper",
+      "preload": true,
       "clips": {
         "idle": [5, 30],
         "run": [35, 50],

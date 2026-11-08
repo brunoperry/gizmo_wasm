@@ -28,6 +28,7 @@ void display_clear(uint32_t color)
 {
     size_t length = (size_t)display.width * display.height;
     uint32_t *c = display.color;
+    display.clear_color = color;
     for (size_t i = 0; i < length; i++) // auto-vectorized (simd128)
         c[i] = color;
     memset(display.depth, 0, length * sizeof(float)); // 0.0f == "infinitely far"
@@ -97,4 +98,11 @@ void display_apply_filter(int filter)
     for (size_t i = 0; i < length; i++)
         if (map[i] >= 0)
             display.color[i] = display.scratch[map[i]];
+}
+
+void display_release(uintptr_t mark)
+{
+    for (int i = 0; i < 2; i++)
+        if (gz_after(display.filter_maps[i], mark))
+            display.filter_maps[i] = NULL;
 }

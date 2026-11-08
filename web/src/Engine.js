@@ -3,6 +3,7 @@ import Resources from "./Resources.js";
 import InputController from "./InputController.js";
 import WASM from "./WASM.js";
 import AudioController from "./AudioControler.js";
+import ModelScene from "./ModelScene.js";
 
 export default class Engine {
   static States = {
@@ -13,6 +14,8 @@ export default class Engine {
     READY: 4,
     FILTER_CHANGED: 5,
     LIGHTING_CHANGED: 6,
+    DISPLAY_CHANGED: 7,
+    SCENE_CHANGED: 8,
   };
 
   // Filters that stay on (applied to every frame) until toggled off; one at
@@ -51,9 +54,13 @@ export default class Engine {
     await Resources.initialize(this.#listener, Engine.States.LOADING);
     InputController.initialize();
 
-    this.#scene = new scene();
     // this.#audio = new AudioController();
     this.#display = new Display();
+
+    // From here on, wasm memory belongs to the scene (freed by load_scene),
+    // textures included.
+    WASM.scene_begin();
+    this.#scene = new scene();
 
     document.addEventListener("pointerlockchange", (e) => {
       if (!this.#display.lock_cursor) this.stop();
@@ -107,7 +114,7 @@ export default class Engine {
     }
     this.#previous_frame_time = time;
 
-    this.#scene.update(this.#delta_time);
+    this.#scene?.update(this.#delta_time);
 
     this.#render();
 
@@ -119,6 +126,33 @@ export default class Engine {
   #render() {
     WASM.update();
     if (this.#filter) WASM.apply_filter(this.#filter);
+  }
+
+  // Replaces the scene: frees the current one (wasm memory included), then
+  // `build()` creates the new one. Shows it right away, even while paused.
+  // SCENE_CHANGED gets { name, model }: the data.json entry shown, or null.
+  load_scene(build, model = null) {
+    this.#scene = null;
+    WASM.scene_clear();
+    Resources.scene_cleared();
+    this.#scene = build();
+    this.#render();
+    this.#display.update();
+    this.#listener(Engine.States.SCENE_CHANGED, { name: this.#scene.name, model });
+  }
+  // A model from data.json (Scene > Models), by its entry name. Loaded the
+  // first time it's picked; the current scene stays until it's ready.
+  async load_model(name) {
+    await Resources.load_model(name);
+    this.load_scene(() => new ModelScene(name, Resources.get_objects(name)), name);
+  }
+  // A model picked from the computer, with its textures (see
+  // Resources.load_files). The current scene stays if the files can't be read.
+  // Returns the loader's warnings.
+  async open_files(files) {
+    const model = await Resources.load_files(files);
+    this.load_scene(() => new ModelScene(model.name, model.objects));
+    return model.warnings;
   }
 
   applyFilter(filter) {
@@ -176,6 +210,15 @@ export default class Engine {
     this.#listener(Engine.States.LIGHTING_CHANGED);
   }
 
+  get show_grid() {
+    return this.#display.show_grid;
+  }
+  set show_grid(val) {
+    this.#display.show_grid = val;
+    this.#refresh();
+    this.#listener(Engine.States.DISPLAY_CHANGED);
+  }
+
   get render_mode() {
     return this.#display.render_mode;
   }
@@ -192,8 +235,11 @@ export default class Engine {
   get is_running() {
     return this.#loopID;
   }
+  get camera() {
+    return this.#scene?.camera ?? null;
+  }
   get scene_name() {
-    return this.#scene.name;
+    return this.#scene?.name;
   }
   get memory() {
     return WASM.mem_size;

@@ -78,7 +78,8 @@ export default class Camera3D {
 
   // Moves the camera back along its view direction until every object fits
   // in the frustum (like "frame all" in Maya). The view direction is kept.
-  frame_all() {
+  // It glides there, or jumps when `immediate`.
+  frame_all(immediate = false) {
     const bounds = WASM.scene_bounds();
     if (!bounds) return;
     const { min, max } = bounds;
@@ -111,6 +112,10 @@ export default class Camera3D {
 
     this.#frame_target = vec3(c.x - f.x * d, c.y - f.y * d, c.z - f.z * d);
     this.#velocity = vec3(0, 0, 0);
+    if (immediate) {
+      this.position = this.#frame_target;
+      this.#frame_target = null;
+    }
   }
 
   #moving() {
@@ -198,6 +203,13 @@ export default class Camera3D {
   set position(val) {
     this.#pos = val;
     new Float32Array(WASM.mem, this.#cam_buffer[6], 3).set([val.x, val.y, val.z]);
+  }
+  // Orientation as Euler angles in degrees, like Object3D.rotation: x = tilt
+  // (positive looks down), y = turn around the up axis, z = roll (always 0).
+  get rotation() {
+    const deg = 180 / Math.PI;
+    const yaw = (((this.#yaw * deg + 180) % 360) + 360) % 360 - 180; // -180..180
+    return vec3(-this.#pitch * deg, yaw, 0);
   }
   get direction() {
     return this.#dir;

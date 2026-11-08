@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "renderer.h"
 #include "display.h"
 #include "raster.h"
@@ -263,11 +264,19 @@ int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting
 }
 
 /////////
-// Light gizmos: wireframe icons drawn on top of everything.
+// Lines in view space: light gizmos (on top of everything) and the grid.
 /////////
 
+// Depth-tested, fading line (see raster_line_depth), invisible past max_z.
+typedef struct
+{
+    float scale, offset;
+    float max_z;
+} line_fade_t;
+
 // Clips a view-space segment against the frustum, projects it and draws it.
-static void gizmo_line(vec3_t p0, vec3_t p1, uint32_t color, const camera_frame_t *f)
+// fade: NULL draws on top of everything.
+static void view_line(vec3_t p0, vec3_t p1, uint32_t color, const line_fade_t *fade, const camera_frame_t *f)
 {
     float t0 = 0.0f, t1 = 1.0f;
     for (int plane = 0; plane < NUM_PLANES; plane++)
@@ -287,6 +296,18 @@ static void gizmo_line(vec3_t p0, vec3_t p1, uint32_t color, const camera_frame_
             if (t < t1) t1 = t;
         }
     }
+    if (fade) // nothing to draw where it has faded out
+    {
+        float d0 = fade->max_z - p0.z, d1 = fade->max_z - p1.z;
+        if (d0 < 0 && d1 < 0)
+            return;
+        if (d0 < 0 || d1 < 0)
+        {
+            float t = d0 / (d0 - d1);
+            if (d0 < 0 && t > t0) t0 = t;
+            if (d1 < 0 && t < t1) t1 = t;
+        }
+    }
     if (t0 > t1)
         return;
 
@@ -295,8 +316,55 @@ static void gizmo_line(vec3_t p0, vec3_t p1, uint32_t color, const camera_frame_
     vec3_t q1 = vec3_add(p0, vec3_mul(d, t1));
     const float half_w = display.width * 0.5f, half_h = display.height * 0.5f;
     const float sx_scale = half_w * f->proj_x, sy_scale = half_h * f->proj_y;
-    raster_line(half_w + q0.x / q0.z * sx_scale, half_h - q0.y / q0.z * sy_scale,
-                half_w + q1.x / q1.z * sx_scale, half_h - q1.y / q1.z * sy_scale, color);
+    const float iw0 = 1.0f / q0.z, iw1 = 1.0f / q1.z;
+    const float x0 = half_w + q0.x * iw0 * sx_scale, y0 = half_h - q0.y * iw0 * sy_scale;
+    const float x1 = half_w + q1.x * iw1 * sx_scale, y1 = half_h - q1.y * iw1 * sy_scale;
+    if (fade)
+        raster_line_depth(x0, y0, iw0, x1, y1, iw1, color, fade->scale, fade->offset);
+    else
+        raster_line(x0, y0, x1, y1, color);
+}
+
+static void gizmo_line(vec3_t p0, vec3_t p1, uint32_t color, const camera_frame_t *f)
+{
+    view_line(p0, p1, color, NULL, f);
+}
+
+// Grid on the ground (world y = 0): lines one unit apart, GRID_HALF each side
+// of the camera, following it in whole steps so it looks endless. It fades out
+// between GRID_FADE_NEAR and GRID_FADE_FAR view depth, which hides both its
+// edge and the jagged mess of far lines. Every GRID_MAJOR-th line is brighter;
+// the X and Z axes are red and blue.
+#define GRID_HALF 25
+#define GRID_FADE_NEAR 6.0f
+#define GRID_FADE_FAR 24.0f
+#define GRID_MAJOR 10
+#define GRID_COLOR 0xff6e6e6eu
+#define GRID_MAJOR_COLOR 0xff9a9a9au
+#define GRID_X_AXIS_COLOR 0xff3c3cc8u // red
+#define GRID_Z_AXIS_COLOR 0xffc8783cu // blue
+
+void render_grid(const camera_frame_t *f)
+{
+    // Opacity is linear in 1 / depth: 1 at GRID_FADE_NEAR, 0 at GRID_FADE_FAR.
+    const float iw_near = 1.0f / GRID_FADE_NEAR, iw_far = 1.0f / GRID_FADE_FAR;
+    const line_fade_t fade = {1.0f / (iw_near - iw_far), -iw_far / (iw_near - iw_far), GRID_FADE_FAR};
+
+    const int cx = (int)floorf(camera3d.position[0] + 0.5f);
+    const int cz = (int)floorf(camera3d.position[2] + 0.5f);
+    const float x_min = (float)(cx - GRID_HALF), x_max = (float)(cx + GRID_HALF);
+    const float z_min = (float)(cz - GRID_HALF), z_max = (float)(cz + GRID_HALF);
+    for (int i = -GRID_HALF; i <= GRID_HALF; i++)
+    {
+        // Line along Z at x = cx + i, and along X at z = cz + i.
+        const int x = cx + i, z = cz + i;
+        const uint32_t x_color = x == 0 ? GRID_Z_AXIS_COLOR : x % GRID_MAJOR == 0 ? GRID_MAJOR_COLOR : GRID_COLOR;
+        const uint32_t z_color = z == 0 ? GRID_X_AXIS_COLOR : z % GRID_MAJOR == 0 ? GRID_MAJOR_COLOR : GRID_COLOR;
+        view_line(mat4_mul_point(&f->view, (float)x, 0.0f, z_min), mat4_mul_point(&f->view, (float)x, 0.0f, z_max),
+                  x_color, &fade, f);
+        view_line(mat4_mul_point(&f->view, x_min, 0.0f, (float)z), mat4_mul_point(&f->view, x_max, 0.0f, (float)z),
+                  z_color, &fade, f);
+    }
 }
 
 void render_light_gizmos(const lighting_t *lt, const camera_frame_t *f)

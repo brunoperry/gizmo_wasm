@@ -28,9 +28,11 @@ Clone the repo and run index.html on localhost, no dependencies needed.
 
 ## Playing with different models
 
-Open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_.
+**Scene > Models** lists every model in `/web/resources/data.json`: picking one replaces the scene with it (default light, camera framing it). Models (and their textures) are only downloaded the first time they're picked. A scene written in code that uses a model right away (like `TestScene`) needs it loaded at startup: add `"preload": true` to its entry, or `await Resources.load_model("name")` before creating the scene.
 
-Next, open `web/src/TestScene.js` and add your new model to the scene.
+**Scene > Open file...** opens a model from your computer: `.usda`, `.obj` or `.fbx`. Pick its textures together with it (and an OBJ's `.mtl`): they are matched by name. A single image goes on whatever has no texture. You can also drop the files on the view.
+
+To add a model to the list, open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_. To place it in your own scene instead, open `web/src/TestScene.js` and add it there.
 
 If a file has no normals (or only some), they are computed while loading (any format). Edges sharper than 60° stay hard (a box keeps flat sides), smaller ones are smoothed. An entry can change the angle with `"crease_angle"` (degrees: `0` = faceted, `180` = all smooth):
 

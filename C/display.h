@@ -26,9 +26,10 @@ typedef struct
     // Post-processing filters: color is copied into `scratch`, then each pixel
     // is fetched through a precomputed source-index table (-1 = keep).
     uint32_t *scratch;
+    uint32_t clear_color; // last display_clear() color
     int32_t *filter_maps[2];
 
-    int32_t *render_mode; // written by javascript: [render mode, lighting mode, show light gizmos, shadows]
+    int32_t *render_mode; // written by javascript: [render mode, lighting mode, show light gizmos, shadows, show grid]
 } display_t;
 
 extern display_t display;
@@ -37,5 +38,8 @@ extern display_t display;
 uint32_t *display_create(int width, int height);
 void display_clear(uint32_t color);
 void display_apply_filter(int filter);
+// Drops the filter maps allocated after `mark` (see gz_release); they are
+// rebuilt when needed.
+void display_release(uintptr_t mark);
 
 #endif

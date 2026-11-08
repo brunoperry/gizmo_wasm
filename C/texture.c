@@ -26,6 +26,15 @@ texture_t *texture_create(int width, int height)
     return t;
 }
 
+int texture_count(void) { return total_textures; }
+
+// Textures are created in order, so the released ones are the last ones.
+void textures_release(uintptr_t mark)
+{
+    while (total_textures > 0 && gz_after(textures[total_textures - 1], mark))
+        textures[--total_textures] = NULL;
+}
+
 texture_t *texture_get(int id)
 {
     if (id < 0 || id >= total_textures)
