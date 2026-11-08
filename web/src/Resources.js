@@ -3,6 +3,7 @@ import Object3D from "./Object3D.js";
 import Texture from "./Texture.js";
 import WASM from "./WASM.js";
 import USDA from "./USDA.js";
+import Animator from "./Animator.js";
 
 export default class Resources {
   static objects = [];
@@ -11,6 +12,7 @@ export default class Resources {
   static splash = null;
   static main_audio = null;
   static #textures_by_url = new Map();
+  static #clips = new Map(); // data.json entry name -> { clip: [start, end] }
 
   static async initialize(listener, state) {
     if (listener) listener(state, "loading data.json");
@@ -32,18 +34,19 @@ export default class Resources {
       let loaded;
       switch (obj_type) {
         case "obj":
-          loaded = await Resources.#load_obj_file(entry.url);
+          loaded = await Resources.#load_obj_file(entry.url, entry.crease_angle);
           break;
         case "fbx":
-          loaded = await Resources.#load_fbx_file(entry.url);
+          loaded = await Resources.#load_fbx_file(entry.url, entry.crease_angle);
           break;
         case "usda":
         case "usd":
-          loaded = await Resources.#load_usd_file(entry.url);
+          loaded = await Resources.#load_usd_file(entry.url, entry.crease_angle);
           break;
         default:
           throw new Error(`Unsupported mesh format: ${entry.url}`);
       }
+      if (entry.clips) Resources.#clips.set(entry.name, entry.clips);
       // A USD file can hold several meshes; get_objects(entry.name) returns them all.
       for (const obj of [].concat(loaded)) {
         if (entry.texture) obj.texture = Resources.get_image(entry.texture);
@@ -79,13 +82,26 @@ export default class Resources {
           : `No object named "${obj_name}"`
       );
     }
-    return obj.clone();
+    return Resources.#animate([obj], [obj.clone()])[0];
   }
   // Every object loaded from one data.json mesh entry (e.g. all meshes of a USD file).
+  // Skinned meshes of the same skeleton share one Animator: `objects[0].animation`.
   static get_objects(entry_name) {
-    return Resources.objects
-      .filter((obj) => obj.group === entry_name)
-      .map((obj) => obj.clone());
+    const sources = Resources.objects.filter((obj) => obj.group === entry_name);
+    return Resources.#animate(sources, sources.map((obj) => obj.clone()));
+  }
+  // Gives each new instance's skinned objects an Animator, one per skeleton.
+  static #animate(sources, copies) {
+    const animators = new Map();
+    copies.forEach((copy, i) => {
+      const skeleton = sources[i].skin?.skeleton;
+      if (!skeleton) return;
+      if (!animators.has(skeleton)) {
+        animators.set(skeleton, new Animator(skeleton, Resources.#clips.get(sources[i].group)));
+      }
+      copy.animation = animators.get(skeleton);
+    });
+    return copies;
   }
   static get_image(image_name) {
     return Resources.textures.find((image) => image.name === image_name);
@@ -101,7 +117,7 @@ export default class Resources {
     return res;
   }
 
-  static async #load_fbx_file(data_path) {
+  static async #load_fbx_file(data_path, crease_angle) {
     const parse_block = (from, data) => {
       let data_block = "";
       let start_parse = false;
@@ -148,17 +164,16 @@ export default class Resources {
     const uvs_index = parse_block(clean_data.search("UVIndex:"), clean_data);
     const uvs = parse_block(clean_data.search("UV:"), clean_data);
 
-    const normals = [];
+    const normals = []; // not read: computed by Object3D.from_faces
     for (let i = 0; i < vertices_index.length; i++) {
       const val = vertices_index[i];
       if (val < 0) {
         vertices_index[i] = Math.abs(parseInt(vertices_index[i] + 1));
       }
-      normals.push(1);
 
       faces.push(vertices_index[i]);
       faces.push(uvs_index[i]);
-      faces.push(1);
+      faces.push(-1);
     }
 
     const name_index = clean_data.search("Model: ");
@@ -170,12 +185,13 @@ export default class Resources {
     }
     const name = name_data.split(", ")[1].replace(/['"]/g, "").replace("Model::", "");
 
-    const object3d = Resources.#make_fan_strip({
+    const object3d = Object3D.from_faces({
       vertices: vertices,
       uvs: uvs,
       normals: normals,
       faces: faces,
       name: name,
+      crease_angle,
     });
 
     return object3d;
@@ -184,7 +200,7 @@ export default class Resources {
   // prim, with its transform hierarchy baked in. Its texture comes from the
   // bound UsdPreviewSurface: the diffuse texture file, or a 1x1 texture of
   // the diffuse color. A "texture" in data.json overrides it.
-  static async #load_usd_file(data_path) {
+  static async #load_usd_file(data_path, crease_angle) {
     const url = new URL(data_path, document.baseURI);
     const warn = (message) => console.warn(`${data_path}: ${message}`);
     const meshes = USDA.load(await Resources.#load_text_data(url), warn);
@@ -192,7 +208,7 @@ export default class Resources {
 
     const objects = [];
     for (const mesh of meshes) {
-      const obj = Resources.#make_fan_strip(mesh);
+      const obj = Object3D.from_faces({ ...mesh, crease_angle });
       obj.texture = await Resources.#usd_texture(mesh.material, url, warn);
       objects.push(obj);
     }
@@ -248,7 +264,7 @@ export default class Resources {
     return texture;
   }
 
-  static async #load_obj_file(data_path) {
+  static async #load_obj_file(data_path, crease_angle) {
     const data = await Resources.#load_text_data(data_path);
     const lines = data.split("\n");
     let tokens;
@@ -299,12 +315,13 @@ export default class Resources {
       }
     }
 
-    const object3d = Resources.#make_fan_strip({
+    const object3d = Object3D.from_faces({
       vertices: vertices,
       uvs: uvs,
       normals: normals,
       faces: faces,
       name: name,
+      crease_angle,
     });
 
     return object3d;
@@ -341,27 +358,6 @@ export default class Resources {
     return buffer;
   }
 
-  // Expands indexed faces (v, uv, normal index triplets) into flat
-  // per-triangle arrays. Missing/invalid indices produce zeros.
-  static #make_fan_strip(mesh_data) {
-    const expand = (source, size, offset) => {
-      const out = new Float32Array((mesh_data.faces.length / 3) * size);
-      for (let i = 0, o = 0; i < mesh_data.faces.length; i += 3, o += size) {
-        const index = mesh_data.faces[i + offset];
-        if (index < 0 || (index + 1) * size > source.length) continue;
-        for (let k = 0; k < size; k++) out[o + k] = source[index * size + k];
-      }
-      return out;
-    };
-
-    return new Object3D({
-      vertices: expand(mesh_data.vertices, 3, 0),
-      uvs: expand(mesh_data.uvs, 2, 1),
-      normals: expand(mesh_data.normals, 3, 2),
-      name: mesh_data.name,
-      texture: mesh_data.texture,
-    });
-  }
   static #removeEmptyStrings(data) {
     let dataOut = [];
     for (let i = 0; i < data.length; i++) {

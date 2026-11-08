@@ -17,6 +17,11 @@
     {
       "name": "city_usd",
       "url": "./resources/meshes/city.usda"
+    },
+    {
+      "name": "inkeeper",
+      "url": "./resources/meshes/inkeeper.usda",
+      "texture": "inkeeper"
     }
   ],
   "images": [
@@ -31,6 +36,10 @@
     {
       "name": "null",
       "url": "./resources/images/texture_null.png"
+    },
+    {
+      "name": "inkeeper",
+      "url": "./resources/images/inkeeper_map.jpeg"
     }
   ],
   "audios": []

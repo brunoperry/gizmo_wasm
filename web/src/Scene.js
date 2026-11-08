@@ -8,6 +8,7 @@ const LIGHT_HEADER = 4; // count, ambient r, g, b (see C/light3d.h)
 export default class Scene {
   objects_3d = [];
   lights = [];
+  animators = new Set(); // advanced every frame
   player;
   light; // the default directional light
   camera;
@@ -30,6 +31,7 @@ export default class Scene {
 
   add_obj3d(obj3d) {
     this.objects_3d.push(obj3d);
+    if (obj3d.animation) this.animators.add(obj3d.animation);
 
     WASM.set_object_buffer(obj3d);
   }
@@ -72,6 +74,7 @@ export default class Scene {
   }
 
   update(delta) {
+    for (const animator of this.animators) animator.update(delta);
     this.camera.update(delta);
   }
 }

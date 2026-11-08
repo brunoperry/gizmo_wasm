@@ -1,6 +1,7 @@
 import { angleToRadians, vec3 } from "./math.js";
 import Texture from "./Texture.js";
 import WASM from "./WASM.js";
+import { compute_normals } from "./Normals.js";
 
 export default class Object3D {
   #obj_data = null;
@@ -11,8 +12,70 @@ export default class Object3D {
   #pos = vec3(0, 0, 0);
   #rot = vec3(0, 0, 0);
   #scl = vec3(1, 1, 1);
+  // The playing Animator of a skinned object (shared by a character's meshes).
+  animation = null;
+
   constructor(data) {
     this.#obj_data = data;
+  }
+
+  // Builds an object from indexed faces: (point, uv, normal) index triplets,
+  // three per triangle, as the OBJ/FBX/USD loaders produce. Every triangle
+  // corner gets its own copy (triangle soup); invalid indices give zeros.
+  // A `skin` (USD skeletal animation) is converted to per-corner data too.
+  // Corners without a normal in the file get one computed (see Normals.js).
+  static from_faces(mesh_data) {
+    const corners = mesh_data.faces.length / 3;
+    const expand = (source, size, offset) => {
+      const out = new Float32Array(corners * size);
+      for (let i = 0, o = 0; i < mesh_data.faces.length; i += 3, o += size) {
+        const index = mesh_data.faces[i + offset];
+        if (index < 0 || (index + 1) * size > source.length) continue;
+        for (let k = 0; k < size; k++) out[o + k] = source[index * size + k];
+      }
+      return out;
+    };
+
+    const corner_points = new Int32Array(corners);
+    for (let c = 0; c < corners; c++) corner_points[c] = mesh_data.faces[c * 3];
+    // Fills the corners that have no (valid) normal with computed ones.
+    const complete_normals = (normals, points) => {
+      let generated = null;
+      for (let c = 0; c < corners; c++) {
+        const o = c * 3;
+        if (normals[o] !== 0 || normals[o + 1] !== 0 || normals[o + 2] !== 0) continue;
+        generated ??= compute_normals(points, corner_points, mesh_data.crease_angle);
+        normals[o] = generated[o], normals[o + 1] = generated[o + 1], normals[o + 2] = generated[o + 2];
+      }
+      return normals;
+    };
+
+    let skin = null;
+    if (mesh_data.skin) {
+      const s = mesh_data.skin;
+      skin = {
+        skeleton: s.skeleton,
+        method: s.method,
+        influences: s.influences,
+        joints: s.joints,
+        weights: s.weights,
+        bind_points: s.bind_points,
+        bind_normals: complete_normals(
+          s.bind_normals ? expand(s.bind_normals, 3, 2) : new Float32Array(corners * 3),
+          s.bind_points
+        ),
+        corner_points,
+      };
+    }
+
+    return new Object3D({
+      vertices: expand(mesh_data.vertices, 3, 0),
+      uvs: expand(mesh_data.uvs, 2, 1),
+      normals: complete_normals(expand(mesh_data.normals, 3, 2), mesh_data.vertices),
+      name: mesh_data.name,
+      texture: mesh_data.texture,
+      skin,
+    });
   }
 
   initialize(buffers) {
@@ -78,5 +141,9 @@ export default class Object3D {
   }
   get data() {
     return this.#obj_data;
+  }
+  // Skeletal animation data, or null for rigid objects.
+  get skin() {
+    return this.#obj_data.skin ?? null;
   }
 }

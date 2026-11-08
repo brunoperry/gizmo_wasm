@@ -11,6 +11,8 @@
 #include "texture.h"
 #include "object.h"
 #include "shadow_pass.h"
+#include "skeleton.h"
+#include "skinning.h"
 
 #define CLEAR_COLOR 0x22FF0000u
 
@@ -122,6 +124,54 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
     return buffer;
 }
 
+// Skeleton + animation shared by every instance. Returns 6 values:
+// skeleton id, then pointers to parents, order, inv_bind, to_object, frames
+// (layout in skeleton.h).
+EXPORT(set_skeleton_buffer) uint32_t *set_skeleton_buffer(int num_joints, int num_frames)
+{
+    uint32_t *buffer = gz_alloc(6 * sizeof(uint32_t));
+    skeleton_t *s = skeleton_create(num_joints, num_frames);
+    if (!buffer || !s)
+        return NULL;
+    buffer[0] = (uint32_t)(skeleton_count() - 1);
+    buffer[1] = (uint32_t)(uintptr_t)s->parents;
+    buffer[2] = (uint32_t)(uintptr_t)s->order;
+    buffer[3] = (uint32_t)(uintptr_t)s->inv_bind;
+    buffer[4] = (uint32_t)(uintptr_t)s->to_object;
+    buffer[5] = (uint32_t)(uintptr_t)s->frames;
+    return buffer;
+}
+
+// One playing instance of a skeleton. Returns 2 values: animator id, pointer
+// to its state (3 floats javascript writes every frame, see skeleton.h).
+EXPORT(create_animator) uint32_t *create_animator(int skeleton_id)
+{
+    uint32_t *buffer = gz_alloc(2 * sizeof(uint32_t));
+    animator_t *a = animator_create(skeleton_id);
+    if (!buffer || !a)
+        return NULL;
+    buffer[0] = (uint32_t)(animator_count() - 1);
+    buffer[1] = (uint32_t)(uintptr_t)a->state;
+    return buffer;
+}
+
+// Skins the object being created (call between set_object_buffer and
+// obj_done). Returns 5 pointers: bind_points, joints, weights,
+// corner_points, bind_normals (0 if has_normals is 0).
+EXPORT(set_skin_buffer) uint32_t *set_skin_buffer(int animator_id, int num_points, int influences, int method, int has_normals)
+{
+    uint32_t *buffer = gz_alloc(5 * sizeof(uint32_t));
+    skin_t *s = skin_create(pending_object, animator_id, num_points, influences, method, has_normals);
+    if (!buffer || !s)
+        return NULL;
+    buffer[0] = (uint32_t)(uintptr_t)s->bind_points;
+    buffer[1] = (uint32_t)(uintptr_t)s->joints;
+    buffer[2] = (uint32_t)(uintptr_t)s->weights;
+    buffer[3] = (uint32_t)(uintptr_t)s->corner_points;
+    buffer[4] = (uint32_t)(uintptr_t)s->bind_normals;
+    return buffer;
+}
+
 EXPORT(obj_done) void obj_done(void)
 {
     object3d_t *obj = pending_object;
@@ -150,6 +200,12 @@ EXPORT(update) void update(void)
         return;
 
     display_clear(CLEAR_COLOR);
+
+    // Animation first: poses, then the vertices of skinned objects.
+    animators_update();
+    for (int i = 0; i < total_objects; i++)
+        if (objects[i]->skin)
+            skin_apply(objects[i]);
 
     camera_frame_t frame;
     camera_frame(&frame);

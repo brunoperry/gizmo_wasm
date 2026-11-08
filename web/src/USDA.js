@@ -12,6 +12,9 @@
 //   - Materials: the diffuseColor of a UsdPreviewSurface, either a constant or
 //     a UsdUVTexture file. A mesh split into material GeomSubsets yields one
 //     mesh per subset.
+//   - Skeletal animation (UsdSkel): skinned meshes get a `skin` with the
+//     skeleton, its animation resampled to whole frames, joint influences
+//     and the bind pose. See `skin` in load() below.
 //
 // Unsupported features are reported through `warn` and skipped: references,
 // payloads, sublayers, inherits/specializes, instancing, non-Mesh gprims
@@ -24,6 +27,21 @@ export default class USDA {
   // `faces` holds (point, uv, normal) index triplets, three per triangle, as
   // the OBJ loader produces. A missing uv or normal is -1. `material` is
   // { texture: asset path | null, color: [r, g, b] linear | null } or null.
+  //
+  // Skinned meshes also have `skin`:
+  //   { skeleton, method: "linear" | "dualQuaternion", influences,
+  //     joints (Int32Array, `influences` per point, skeleton joint indices, -1 = none),
+  //     weights (Float32Array, same layout),
+  //     bind_points (Float32Array, 3 per point, skeleton space),
+  //     bind_normals (like `normals` but in skeleton space, or null) }
+  // `vertices` / `normals` then hold the bind pose in Gizmo space. Meshes
+  // bound to the same skeleton share the same `skeleton` object:
+  //   { path, num_joints, parents (Int32Array), order (Int32Array, parents first),
+  //     inv_bind (Float32Array, 16 per joint), to_object (Float32Array(16)),
+  //     num_frames, fps, start (first time code),
+  //     frames (Float32Array, per frame per joint: translation xyz,
+  //             rotation wxyz, scale xyz) }
+  // Matrices are row-major, for column vectors (p' = M * p).
   static load(text, warn = () => {}) {
     return extract_meshes(USDA.parse(text), warn);
   }
@@ -525,6 +543,42 @@ const normal_matrix = (m) => {
   return { rows: [c0, c1, c2].map((r) => r.map((v) => v * s)), det };
 };
 
+// Rotation matrix (upper 3x3 of m, orthonormal) -> quaternion [w, x, y, z].
+const quat_from_matrix = (m) => {
+  const m00 = m[0], m01 = m[1], m02 = m[2], m10 = m[4], m11 = m[5], m12 = m[6], m20 = m[8], m21 = m[9], m22 = m[10];
+  const trace = m00 + m11 + m22;
+  let w, x, y, z;
+  if (trace > 0) {
+    const s = 0.5 / Math.sqrt(trace + 1);
+    w = 0.25 / s, x = (m21 - m12) * s, y = (m02 - m20) * s, z = (m10 - m01) * s;
+  } else if (m00 > m11 && m00 > m22) {
+    const s = 2 * Math.sqrt(1 + m00 - m11 - m22);
+    w = (m21 - m12) / s, x = 0.25 * s, y = (m01 + m10) / s, z = (m02 + m20) / s;
+  } else if (m11 > m22) {
+    const s = 2 * Math.sqrt(1 + m11 - m00 - m22);
+    w = (m02 - m20) / s, x = (m01 + m10) / s, y = 0.25 * s, z = (m12 + m21) / s;
+  } else {
+    const s = 2 * Math.sqrt(1 + m22 - m00 - m11);
+    w = (m10 - m01) / s, x = (m02 + m20) / s, y = (m12 + m21) / s, z = 0.25 * s;
+  }
+  const n = Math.hypot(w, x, y, z) || 1;
+  return [w / n, x / n, y / n, z / n];
+};
+
+// Translation, rotation, scale of a matrix without shear: [t3, q4 (wxyz), s3].
+const decompose = (m) => {
+  let sx = Math.hypot(m[0], m[4], m[8]), sy = Math.hypot(m[1], m[5], m[9]), sz = Math.hypot(m[2], m[6], m[10]);
+  const det = m[0] * (m[5] * m[10] - m[6] * m[9]) - m[1] * (m[4] * m[10] - m[6] * m[8]) + m[2] * (m[4] * m[9] - m[5] * m[8]);
+  if (det < 0) sx = -sx;
+  const r = [...m];
+  for (let i = 0; i < 3; i++) {
+    r[i * 4] /= sx || 1;
+    r[i * 4 + 1] /= sy || 1;
+    r[i * 4 + 2] /= sz || 1;
+  }
+  return [m[3], m[7], m[11], ...quat_from_matrix(r), sx, sy, sz];
+};
+
 const op_matrix = (kind, value) => {
   switch (kind) {
     case "translate":
@@ -649,6 +703,137 @@ function extract_meshes(root, warn) {
     return { m, reset };
   };
 
+  // World matrix of any prim (memoized), for skeletons found by path.
+  const worlds = new Map([["/", stage_matrix]]);
+  const world_of = (prim) => {
+    if (worlds.has(prim.path)) return worlds.get(prim.path);
+    const slash = prim.path.lastIndexOf("/");
+    const parent = index.get(slash > 0 ? prim.path.slice(0, slash) : "/");
+    const { m, reset } = local_transform(prim);
+    const w = mul(reset || !parent ? stage_matrix : world_of(parent), m);
+    worlds.set(prim.path, w);
+    return w;
+  };
+
+  const rel_target = (prim, name) => {
+    const target = prim.rels.get(name)?.targets?.[0];
+    return target ? resolve_path(target, prim.path).prim : null;
+  };
+
+  // Samples a (possibly animated) attribute at `time`: linear between time
+  // samples, held outside them. `kind`: "vec" or "quat" (normalized lerp).
+  const sample_at = (attr, time, kind) => {
+    const s = attr?.samples;
+    if (!s?.length) return attr?.value ?? undefined;
+    if (time <= s[0][0]) return s[0][1];
+    if (time >= s[s.length - 1][0]) return s[s.length - 1][1];
+    let lo = 0, hi = s.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (s[mid][0] <= time) lo = mid;
+      else hi = mid;
+    }
+    const [t0, a] = s[lo], [t1, b] = s[hi];
+    const t = (time - t0) / (t1 - t0);
+    if (t <= 0 || !Array.isArray(a) || !Array.isArray(b)) return a;
+    return a.map((va, i) => {
+      const vb = b[i];
+      if (!Array.isArray(va)) return va + (vb - va) * t;
+      // per element: vectors lerp, quaternions take the short way round
+      let sign = 1;
+      if (kind === "quat") sign = va.reduce((d, x, k) => d + x * vb[k], 0) < 0 ? -1 : 1;
+      const out = va.map((x, k) => x + (sign * vb[k] - x) * t);
+      if (kind === "quat") {
+        const n = Math.hypot(...out) || 1;
+        return out.map((x) => x / n);
+      }
+      return out;
+    });
+  };
+
+  const skeletons = new Map();
+  const skeleton_of = (skel_path, anim_path) => {
+    const key = `${skel_path}|${anim_path}`;
+    if (skeletons.has(key)) return skeletons.get(key);
+    let result = null;
+    const skel = index.get(skel_path);
+    const joints = skel && value_of(skel, "joints");
+    if (!skel || skel.type !== "Skeleton" || !Array.isArray(joints) || !joints.length) {
+      warn_once(`skeleton ${skel_path} not found or has no joints`);
+    } else {
+      const J = joints.length;
+      const index_of = new Map(joints.map((name, i) => [name, i]));
+      const parents = new Int32Array(J);
+      joints.forEach((name, i) => {
+        const slash = name.lastIndexOf("/");
+        parents[i] = slash > 0 ? index_of.get(name.slice(0, slash)) ?? -1 : -1;
+      });
+      // Evaluation order with parents first (USD usually stores it that way already).
+      const order = [], done = new Uint8Array(J);
+      const add = (j) => {
+        if (done[j]) return;
+        done[j] = 1;
+        if (parents[j] >= 0) add(parents[j]);
+        order.push(j);
+      };
+      for (let j = 0; j < J; j++) add(j);
+
+      const identity_rows = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+      const binds = value_of(skel, "bindTransforms") ?? [];
+      const rests = value_of(skel, "restTransforms") ?? [];
+      if (binds.length !== J) warn_once(`skeleton ${skel_path}: bindTransforms don't match joints`);
+      const inv_bind = new Float32Array(J * 16);
+      const rest = [];
+      for (let j = 0; j < J; j++) {
+        const inv = invert(from_usd_matrix(binds[j] ?? identity_rows)) ?? identity();
+        inv_bind.set(inv, j * 16);
+        rest.push(decompose(from_usd_matrix(rests[j] ?? binds[j] ?? identity_rows)));
+      }
+
+      // Animation, resampled at every whole time code of the layer's range.
+      const anim = anim_path && index.get(anim_path);
+      if (anim_path && anim?.type !== "SkelAnimation") warn_once(`animation ${anim_path} not found`);
+      const anim_joints = (anim && value_of(anim, "joints")) || [];
+      const map = anim_joints.map((name) => index_of.get(name) ?? -1);
+      const attrs = anim ? ["translations", "rotations", "scales"].map((n) => anim.attrs.get(n)) : [];
+      const times = attrs.flatMap((a) => a?.samples?.map((x) => x[0]) ?? []);
+      let start = root.meta.startTimeCode ?? (times.length ? Math.min(...times) : 0);
+      let end = root.meta.endTimeCode ?? (times.length ? Math.max(...times) : start);
+      if (!times.length) end = start; // not animated: one frame
+      const num_frames = Math.max(1, Math.floor(end - start) + 1);
+      const fps = root.meta.timeCodesPerSecond ?? root.meta.framesPerSecond ?? 24;
+
+      const frames = new Float32Array(num_frames * J * 10);
+      for (let f = 0; f < num_frames; f++) {
+        for (let j = 0; j < J; j++) frames.set(rest[j], (f * J + j) * 10);
+        if (!anim) continue;
+        const time = start + f;
+        const [tr, rot, sc] = [sample_at(attrs[0], time, "vec"), sample_at(attrs[1], time, "quat"), sample_at(attrs[2], time, "vec")];
+        map.forEach((j, k) => {
+          if (j < 0) return;
+          const o = (f * J + j) * 10;
+          if (tr?.[k]) frames.set(tr[k], o);
+          if (rot?.[k]) frames.set(rot[k], o + 3);
+          if (sc?.[k]) frames.set(sc[k], o + 7);
+        });
+      }
+      result = {
+        path: skel_path,
+        num_joints: J,
+        parents,
+        order: Int32Array.from(order),
+        inv_bind,
+        to_object: Float32Array.from(world_of(skel)),
+        num_frames,
+        fps,
+        start,
+        frames,
+      };
+    }
+    skeletons.set(key, result);
+    return result;
+  };
+
   const binding_of = (prim) => {
     for (const name of BINDINGS) {
       const target = prim.rels.get(name)?.targets?.[0];
@@ -745,7 +930,7 @@ function extract_meshes(root, warn) {
 
   // One output mesh per material: GeomSubsets of the "materialBind" family
   // carve faces out of the mesh; the rest uses the mesh's own binding.
-  const read_mesh = (prim, world, inherited_binding, out) => {
+  const read_mesh = (prim, world, inherited_binding, out, skel_binding) => {
     const points = numbers(value_of(prim, "points"));
     const counts = value_of(prim, "faceVertexCounts");
     const indices = value_of(prim, "faceVertexIndices");
@@ -754,6 +939,65 @@ function extract_meshes(root, warn) {
       return;
     }
     const num_points = Math.floor(points.length / 3);
+
+    // Skinned: points live in skeleton space (after geomBindTransform); the
+    // mesh's own transform is replaced by the skeleton's.
+    let skin = null;
+    const joint_attr = prim.attrs.get("primvars:skel:jointIndices");
+    if (joint_attr && prim.attrs.has("primvars:skel:jointWeights")) {
+      const skeleton = skel_binding.skeleton && skeleton_of(skel_binding.skeleton, skel_binding.animation);
+      if (!skeleton) warn_once(`Mesh ${prim.path} has joint weights but no skeleton: drawn unskinned`);
+      else {
+        const geom_bind = value_of(prim, "primvars:skel:geomBindTransform");
+        const g = geom_bind ? from_usd_matrix(geom_bind) : identity();
+        const influences = Math.max(1, joint_attr.meta.elementSize ?? 1);
+        const weight_attr = prim.attrs.get("primvars:skel:jointWeights");
+        const ji = numbers(value_of(prim, "primvars:skel:jointIndices")) ?? [];
+        const jw = numbers(value_of(prim, "primvars:skel:jointWeights")) ?? [];
+        const constant = joint_attr.meta.interpolation === "constant" || ji.length === influences;
+        if ((weight_attr.meta.elementSize ?? 1) !== influences) warn_once(`Mesh ${prim.path}: jointIndices/jointWeights elementSize differ`);
+
+        // Mesh joint order (skel:joints) -> skeleton joint index.
+        const mesh_joints = value_of(prim, "skel:joints");
+        const skel_prim = index.get(skeleton.path);
+        const skel_joints = value_of(skel_prim, "joints");
+        const to_skel = Array.isArray(mesh_joints)
+          ? mesh_joints.map((name) => skel_joints.indexOf(name))
+          : null;
+
+        const joints = new Int32Array(num_points * influences).fill(-1);
+        const weights = new Float32Array(num_points * influences);
+        for (let p = 0; p < num_points; p++) {
+          for (let k = 0; k < influences; k++) {
+            const src = (constant ? 0 : p * influences) + k;
+            let j = ji[src];
+            if (to_skel) j = to_skel[j] ?? -1;
+            if (!(j >= 0 && j < skeleton.num_joints)) continue;
+            joints[p * influences + k] = j;
+            weights[p * influences + k] = jw[src] ?? 0;
+          }
+        }
+        const bind_points = new Float32Array(num_points * 3);
+        for (let i = 0; i < num_points * 3; i += 3) {
+          const x = points[i], y = points[i + 1], z = points[i + 2];
+          bind_points[i] = g[0] * x + g[1] * y + g[2] * z + g[3];
+          bind_points[i + 1] = g[4] * x + g[5] * y + g[6] * z + g[7];
+          bind_points[i + 2] = g[8] * x + g[9] * y + g[10] * z + g[11];
+        }
+        const method = value_of(prim, "primvars:skel:skinningMethod") ?? value_of(prim, "skel:skinningMethod");
+        skin = {
+          skeleton,
+          method: method === "dualQuaternion" ? "dualQuaternion" : "linear",
+          influences,
+          joints,
+          weights,
+          bind_points,
+          bind_normals: null,
+          geom_bind: g,
+        };
+        world = mul(Array.from(skeleton.to_object), g);
+      }
+    }
 
     const vertices = new Array(num_points * 3);
     for (let i = 0; i < num_points * 3; i += 3) {
@@ -780,9 +1024,23 @@ function extract_meshes(root, warn) {
     const sizes = { faceVarying: indices.length, vertex: num_points, uniform: counts.length };
     const uv_name = pick_uv_name(prim);
     const uv = uv_name && primvar(prim, uv_name, 2, sizes);
-    const normals = prim.attrs.has("primvars:normals")
-      ? primvar(prim, "primvars:normals", 3, sizes, transform_normals)
-      : primvar(prim, "normals", 3, sizes, transform_normals);
+    const normals_name = prim.attrs.has("primvars:normals") ? "primvars:normals" : "normals";
+    const normals = primvar(prim, normals_name, 3, sizes, transform_normals);
+    if (skin && normals) {
+      // Same normals in skeleton space (geomBindTransform only).
+      const gm = normal_matrix(skin.geom_bind).rows;
+      const n = primvar(prim, normals_name, 3, sizes).values;
+      skin.bind_normals = new Float32Array(n.length);
+      for (let i = 0; i + 2 < n.length; i += 3) {
+        const x = n[i], y = n[i + 1], z = n[i + 2];
+        const nx = gm[0][0] * x + gm[0][1] * y + gm[0][2] * z;
+        const ny = gm[1][0] * x + gm[1][1] * y + gm[1][2] * z;
+        const nz = gm[2][0] * x + gm[2][1] * y + gm[2][2] * z;
+        const len = Math.hypot(nx, ny, nz) || 1;
+        skin.bind_normals[i] = nx / len, skin.bind_normals[i + 1] = ny / len, skin.bind_normals[i + 2] = nz / len;
+      }
+    }
+    if (skin) delete skin.geom_bind;
 
     // Mirroring transforms and left-handed meshes reverse the front face.
     const flip = (value_of(prim, "orientation") === "leftHanded") !== det < 0;
@@ -831,12 +1089,14 @@ function extract_meshes(root, warn) {
         normals: normals ? normals.values : [],
         faces: group.faces,
         material: material_of(group.binding),
+        ...(skin ? { skin } : {}),
       });
     }
   };
 
   const meshes = [];
-  const visit = (prim, parent_world, inherited_binding) => {
+  // skel: inherited skel:skeleton / skel:animationSource bindings (UsdSkel).
+  const visit = (prim, parent_world, inherited_binding, skel = { skeleton: null, animation: null }) => {
     for (const child of prim.children) {
       if (child.spec !== "def") {
         if (child.spec === "over") warn_once(`over ${child.path} ignored (composition is not supported)`);
@@ -853,10 +1113,17 @@ function extract_meshes(root, warn) {
       const { m, reset } = local_transform(child);
       const world = mul(reset ? stage_matrix : parent_world, m);
       const binding = binding_of(child) ?? inherited_binding;
+      worlds.set(child.path, world);
+      const skeleton = rel_target(child, "skel:skeleton") ?? skel.skeleton;
+      let animation = rel_target(child, "skel:animationSource") ?? skel.animation;
+      // A skeleton's own animationSource wins over inherited ones.
+      const skel_prim = skeleton && index.get(skeleton);
+      if (skel_prim) animation = rel_target(skel_prim, "skel:animationSource") ?? animation;
+      const child_skel = { skeleton, animation };
 
-      if (child.type === "Mesh") read_mesh(child, world, inherited_binding, meshes);
+      if (child.type === "Mesh") read_mesh(child, world, inherited_binding, meshes, child_skel);
       else if (OTHER_GPRIMS.has(child.type)) warn_once(`${child.type} ${child.path} skipped: only Mesh is supported`);
-      visit(child, world, binding);
+      visit(child, world, binding, child_skel);
     }
   };
   visit(root, stage_matrix, null);

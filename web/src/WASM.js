@@ -65,6 +65,57 @@ export default class WASM {
   static set_light_buffer() {
     return WASM.#check(WASM.#c_module.set_light_buffer(), "lights");
   }
+  static #skeleton_ids = new WeakMap(); // skeleton data -> wasm id (uploaded once)
+  static #animators = new WeakSet(); // Animators with wasm state
+
+  // Skeleton + animation, shared by every instance: uploaded once.
+  static #upload_skeleton(skeleton) {
+    if (WASM.#skeleton_ids.has(skeleton)) return WASM.#skeleton_ids.get(skeleton);
+    const ptr = WASM.#check(
+      WASM.#c_module.set_skeleton_buffer(skeleton.num_joints, skeleton.num_frames),
+      `skeleton ${skeleton.path}`
+    );
+    const [id, parents, order, inv_bind, to_object, frames] = new Uint32Array(WASM.mem, ptr, 6);
+    new Int32Array(WASM.mem, parents, skeleton.num_joints).set(skeleton.parents);
+    new Int32Array(WASM.mem, order, skeleton.num_joints).set(skeleton.order);
+    new Float32Array(WASM.mem, inv_bind, skeleton.num_joints * 16).set(skeleton.inv_bind);
+    new Float32Array(WASM.mem, to_object, 16).set(skeleton.to_object);
+    new Float32Array(WASM.mem, frames, skeleton.frames.length).set(skeleton.frames);
+    WASM.#skeleton_ids.set(skeleton, id);
+    return id;
+  }
+  static #animator_ids = new WeakMap();
+  static #animator_id(animator) {
+    if (WASM.#animator_ids.has(animator)) return WASM.#animator_ids.get(animator);
+    const skeleton_id = WASM.#upload_skeleton(animator.skeleton);
+    const ptr = WASM.#check(WASM.#c_module.create_animator(skeleton_id), "animator");
+    const [id, state] = new Uint32Array(WASM.mem, ptr, 2);
+    WASM.#animator_ids.set(animator, id);
+    animator.attach(state);
+    return id;
+  }
+  // Called between set_object_buffer and obj_done.
+  static #set_skin(obj3D) {
+    const skin = obj3D.skin;
+    const num_points = skin.bind_points.length / 3;
+    const ptr = WASM.#check(
+      WASM.#c_module.set_skin_buffer(
+        WASM.#animator_id(obj3D.animation),
+        num_points,
+        skin.influences,
+        skin.method === "dualQuaternion" ? 1 : 0,
+        skin.bind_normals ? 1 : 0
+      ),
+      `skin of ${obj3D.name}`
+    );
+    const [bind_points, joints, weights, corner_points, bind_normals] = new Uint32Array(WASM.mem, ptr, 5);
+    new Float32Array(WASM.mem, bind_points, skin.bind_points.length).set(skin.bind_points);
+    new Int32Array(WASM.mem, joints, skin.joints.length).set(skin.joints);
+    new Float32Array(WASM.mem, weights, skin.weights.length).set(skin.weights);
+    new Int32Array(WASM.mem, corner_points, skin.corner_points.length).set(skin.corner_points);
+    if (skin.bind_normals) new Float32Array(WASM.mem, bind_normals, skin.bind_normals.length).set(skin.bind_normals);
+  }
+
   static set_object_buffer(obj3D) {
     const obj_buffer = WASM.#check(
       WASM.#c_module.set_object_buffer(
@@ -77,6 +128,7 @@ export default class WASM {
     );
     const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
     obj3D.initialize(buffers);
+    if (obj3D.skin && obj3D.animation) WASM.#set_skin(obj3D);
     WASM.#c_module.obj_done();
   }
 

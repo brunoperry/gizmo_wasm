@@ -15,6 +15,7 @@
 - Lighting per triangle, per vertex or per pixel
 - Light gizmos _(show/hide with the LIGHTS button)_
 - Shadows from every light type _(shadow maps, SHADOWS button)_
+- Skeletal animation from USD _(skinning in wasm, named clips, crossfades)_
 - Wireframe, shaded and textured render modes
 
 ## Check it out
@@ -31,6 +32,12 @@ Open the `/web/resources/data.json` file and add/edit your new object _(name, ur
 
 Next, open `web/src/TestScene.js` and add your new model to the scene.
 
+If a file has no normals (or only some), they are computed while loading (any format). Edges sharper than 60° stay hard (a box keeps flat sides), smaller ones are smoothed. An entry can change the angle with `"crease_angle"` (degrees: `0` = faceted, `180` = all smooth):
+
+```json
+{ "name": "city_usd", "url": "./resources/meshes/city.usda", "crease_angle": 40 }
+```
+
 ### USD (`.usda`)
 
 USD files go in `data.json` like OBJ files; `texture` is optional, since it comes from the file's material:
@@ -44,6 +51,36 @@ USD files go in `data.json` like OBJ files; `texture` is optional, since it come
 - Polygons, holes, `leftHanded` orientation, indexed/non-indexed UVs and normals, and the selected variants are supported.
 - The texture comes from the bound `UsdPreviewSurface`: its `UsdUVTexture` file, or a 1x1 texture of its `diffuseColor`. Meshes split into material `GeomSubset`s become one object per material.
 - Not supported (a console warning is shown): binary `.usdc`/`.usdz`, references/payloads/sublayers, instancing, animation (the first time sample is used), and non-mesh shapes like `Cube` or `Sphere`.
+
+## Animated models
+
+USD files with a skeleton (UsdSkel: `Skeleton`, `SkelAnimation`, skinned meshes) are animated. The pose and the skinning (dual quaternion or linear, as the file asks) run in wasm; the animation is interpolated between its frames, so it stays smooth at any frame rate.
+
+```json
+{
+  "name": "inkeeper",
+  "url": "./resources/meshes/inkeeper.usda",
+  "texture": "inkeeper",
+  "clips": { "idle": [0, 120], "wave": [121, 240] }
+}
+```
+
+`clips` are optional frame ranges (the file's frame numbers, both included). The clip `"default"` always covers the whole animation and starts playing in a loop.
+
+```js
+const inkeeper = Resources.get_objects("inkeeper"); // the character's meshes
+for (const obj of inkeeper) this.add_obj3d(obj);
+
+const anim = inkeeper[0].animation; // shared by all of them
+anim.play("wave", { loop: false, fade: 0.3 }); // crossfades from the current pose
+anim.onend = (clip) => anim.play("idle");     // when a non-looping clip ends
+anim.speed = 0.5;   // slow motion (negative plays backwards)
+anim.time = 2;      // jump to 2 s into the clip
+anim.pause(); anim.resume(); anim.stop();
+anim.define_clip("intro", 0, 60); // clips can also be defined in code
+```
+
+Every `get_objects()` call makes a new character with its own Animator; the skeleton and animation data are shared, so several copies cost little memory. Shadow maps are redrawn while a character moves (about 1 ms per directional/spot light); when it's paused they are cached again.
 
 ## Lights
 
@@ -81,7 +118,7 @@ The TRIANGLE / VERTEX / PIXEL buttons choose where lighting is computed:
 - **Vertex**: per vertex, then interpolated (Gouraud). Smooth; small spots of light can fall between vertices.
 - **Pixel**: per pixel, from the interpolated position and normal. The most accurate and the most expensive.
 
-Vertex and pixel lighting use the model's vertex normals when it has them, otherwise the face normals.
+Vertex and pixel lighting use the model's vertex normals (from the file, or computed when loading).
 
 ### Shadows
 

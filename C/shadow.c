@@ -40,6 +40,7 @@ static uint32_t signature(const light_view_t *l, object3d_t *const *objects, int
         h = hash_floats(h, objects[o]->position, 3);
         h = hash_floats(h, objects[o]->rotation, 3);
         h = hash_floats(h, objects[o]->scale, 3);
+        h = (h ^ objects[o]->deform_version) * 16777619u; // animated poses
     }
     return h;
 }

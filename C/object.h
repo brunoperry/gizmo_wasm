@@ -1,7 +1,11 @@
 #ifndef OBJECT3D_H
 #define OBJECT3D_H
 
+#include <stdint.h>
+
 #define MAX_OBJECTS 256
+
+struct skin_s;
 
 // Triangle soup written by javascript (see Object3D.js):
 //   vertices: 9 floats per triangle (x,y,z * 3)
@@ -23,6 +27,9 @@ typedef struct
     int texture_id;
 
     float bounds_min[3], bounds_max[3]; // local-space box, for fitting shadow maps
+
+    struct skin_s *skin;     // skeletal animation, NULL for rigid objects
+    uint32_t deform_version; // bumped whenever skinning moves the vertices
 } object3d_t;
 
 #endif
