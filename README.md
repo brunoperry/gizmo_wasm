@@ -20,24 +20,51 @@
 
 ## Check it out
 
-**[https://brunoperry.github.io/gizmo_wasm/web/](https://brunoperry.github.io/gizmo_wasm/web/ "https://brunoperry.github.io/gizmo_wasm/web/")**
+**[https://brunoperry.github.io/gizmo_wasm/apps/viewer/](https://brunoperry.github.io/gizmo_wasm/apps/viewer/ "https://brunoperry.github.io/gizmo_wasm/apps/viewer/")**
 
 ## Test it
 
-Clone the repo and run index.html on localhost, no dependencies needed.
+Clone the repo, serve its root folder on localhost (e.g. `python3 -m http.server`) and open `/apps/viewer/`. No dependencies needed.
+
+## Project layout
+
+```
+engine/          the Gizmo engine
+  C/             the renderer (C, compiled to engine/js/gizmo.wasm)
+  js/            the JS side; index.js is its public API
+apps/
+  viewer/        the model viewer, an app built on the engine
+```
+
+The engine never imports from `apps/`. Each app imports it as `"gizmo"` through an import map in its `index.html`:
+
+```html
+<script type="importmap">
+  { "imports": { "gizmo": "../../engine/js/index.js", "gizmo/": "../../engine/js/" } }
+</script>
+```
+
+```js
+import { Engine, Scene, Light3D, Resources, vec3 } from "gizmo";
+
+const engine = new Engine((state, data) => { /* Engine.States: READY, SCENE_CHANGED... */ });
+await engine.start_engine(MyScene, { canvas: document.querySelector("canvas"), data: "resources/data.json" });
+```
+
+`data` is the app's resource list (optional); the urls inside it are relative to it. `engine.load_scene(() => new OtherScene())` replaces the scene and frees its memory.
 
 ## Playing with different models
 
-**Scene > Models** lists every model in `/web/resources/data.json`: picking one replaces the scene with it (default light, camera framing it). Models (and their textures) are only downloaded the first time they're picked. A scene written in code that uses a model right away (like `TestScene`) needs it loaded at startup: add `"preload": true` to its entry, or `await Resources.load_model("name")` before creating the scene.
+**Scene > Models** lists every model in `apps/viewer/resources/data.json`: picking one replaces the scene with it (default light, camera framing it). Models (and their textures) are only downloaded the first time they're picked. A scene written in code that uses a model right away (like `TestScene`) needs it loaded at startup: add `"preload": true` to its entry, or `await Resources.load_model("name")` before creating the scene.
 
 **Scene > Open file...** opens a model from your computer: `.usda`, `.obj` or `.fbx`. Pick its textures together with it (and an OBJ's `.mtl`): they are matched by name. A single image goes on whatever has no texture. You can also drop the files on the view.
 
-To add a model to the list, open the `/web/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_. To place it in your own scene instead, open `web/src/TestScene.js` and add it there.
+To add a model to the list, open the `apps/viewer/resources/data.json` file and add/edit your new object _(name, url, texture)_. Also include/edit your new texture _(name, url)_. Urls are relative to `data.json`. To place it in your own scene instead, open `apps/viewer/src/TestScene.js` and add it there.
 
 If a file has no normals (or only some), they are computed while loading (any format). Edges sharper than 60° stay hard (a box keeps flat sides), smaller ones are smoothed. An entry can change the angle with `"crease_angle"` (degrees: `0` = faceted, `180` = all smooth):
 
 ```json
-{ "name": "city_usd", "url": "./resources/meshes/city.usda", "crease_angle": 40 }
+{ "name": "city_usd", "url": "./meshes/city.usda", "crease_angle": 40 }
 ```
 
 ### USD (`.usda`)
@@ -45,7 +72,7 @@ If a file has no normals (or only some), they are computed while loading (any fo
 USD files go in `data.json` like OBJ files; `texture` is optional, since it comes from the file's material:
 
 ```json
-{ "name": "surfer_usd", "url": "./resources/meshes/surfer.usda" }
+{ "name": "surfer_usd", "url": "./meshes/surfer.usda" }
 ```
 
 - Each `Mesh` prim becomes an object named after the prim: `Resources.get_object("surfer_usd")`. `Resources.get_objects("<data.json name>")` returns every mesh in the file.
@@ -61,7 +88,7 @@ USD files with a skeleton (UsdSkel: `Skeleton`, `SkelAnimation`, skinned meshes)
 ```json
 {
   "name": "inkeeper",
-  "url": "./resources/meshes/inkeeper.usda",
+  "url": "./meshes/inkeeper.usda",
   "texture": "inkeeper",
   "clips": { "idle": [0, 120], "wave": [121, 240] }
 }
@@ -137,7 +164,7 @@ The SHADOWS button turns shadows on and off (off by default). Every light casts 
 You need the [WASI SDK](https://github.com/WebAssembly/wasi-sdk/releases) (tested with 25.0). Point the makefile at it and build:
 
 ```sh
-make build WASI_SDK=/path/to/wasi-sdk    # optimized -> web/src/gizmo.wasm
+make build WASI_SDK=/path/to/wasi-sdk    # optimized -> engine/js/gizmo.wasm
 make debug WASI_SDK=/path/to/wasi-sdk    # -O0 with DWARF debug info
 ```
 

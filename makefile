@@ -5,8 +5,8 @@ ARCH := $(shell uname -m)
 WASI_SDK ?= $(HOME)/libs/wasi-sdk-25.0-$(if $(filter arm64,$(ARCH)),arm64,x86_64)-macos
 
 CC = $(WASI_SDK)/bin/clang
-OUT = web/src/gizmo.wasm
-SRC = $(wildcard C/*.c)
+OUT = engine/js/gizmo.wasm
+SRC = $(wildcard engine/C/*.c)
 
 CFLAGS = \
 	--target=wasm32-wasip1 \
@@ -27,7 +27,7 @@ comma := ,
 
 build: $(OUT)
 
-$(OUT): $(SRC) $(wildcard C/*.h) makefile
+$(OUT): $(SRC) $(wildcard engine/C/*.h) makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC)
 
 # Unoptimized build with debug info (DWARF) for the browser devtools.

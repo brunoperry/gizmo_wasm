@@ -1,8 +1,10 @@
 import WASM from "./WASM.js";
 
+// The canvas the engine draws on (its size is the render resolution).
 export default class Display {
-  static width = document.querySelector("canvas").width;
-  static height = document.querySelector("canvas").height;
+  // Set when the Display is created (before any scene).
+  static width = 0;
+  static height = 0;
 
   static RenderModes = {
     WIRED: 0,
@@ -23,8 +25,8 @@ export default class Display {
   #image_data = null;
   #render_mode_buffer;
   #is_cursor_locked = false;
-  constructor() {
-    this.#canvas = document.querySelector("canvas");
+  constructor(canvas) {
+    this.#canvas = canvas;
     Display.width = this.#canvas.width;
     Display.height = this.#canvas.height;
     this.#context = this.#canvas.getContext("2d");

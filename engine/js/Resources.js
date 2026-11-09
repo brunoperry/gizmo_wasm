@@ -19,16 +19,26 @@ export default class Resources {
   static #images = new Map(); // url or name -> image ({ name, width, height, data })
   static #scene_textures = new Map(); // image -> Texture in the current scene
   static #clips = new Map(); // data.json entry name -> { clip: [start, end] }
+  static #base = null; // data.json's URL: its urls are relative to it
 
   // Files load_files() accepts as the model.
   static MODEL_TYPES = ["usda", "usd", "usdc", "usdz", "obj", "fbx"];
 
-  // Reads data.json and loads the models marked "preload": true (the ones a
-  // scene built in code needs right away, see TestScene). The others load
-  // when picked (load_model).
-  static async initialize(listener, state) {
-    if (listener) listener(state, "loading data.json");
-    const raw_data = await Resources.#load_json_data("resources/data.json");
+  // Reads the app's resource list (a data.json: meshes, images, audios, with
+  // urls relative to it) and loads the models marked "preload": true (the
+  // ones a scene built in code needs right away). The others load when
+  // picked (load_model). Without a list there are only files (load_files).
+  static async initialize(data_url, listener, state) {
+    Resources.#base = new URL(data_url ?? "./", document.baseURI);
+    if (!data_url) {
+      Resources.DATA = { meshes: [], images: [], audios: [] };
+      return;
+    }
+    if (listener) listener(state, `loading ${data_url}`);
+    const raw_data = await Resources.#load_json_data(Resources.#base);
+    raw_data.meshes ??= [];
+    raw_data.images ??= [];
+    raw_data.audios ??= [];
     Resources.DATA = raw_data;
 
     for (const entry of raw_data.meshes) {
@@ -39,7 +49,7 @@ export default class Resources {
 
     for (let i = 0; i < raw_data.audios.length; i++) {
       if (listener) listener(state, `loading audio: ${raw_data.audios[i].name}`);
-      const audio_data = await Resources.#load_audio_file(raw_data.audios[i].url);
+      const audio_data = await Resources.#load_audio_file(new URL(raw_data.audios[i].url, Resources.#base));
 
       const audio = new AudioTrack(audio_data, raw_data.audios[i].name);
       if (audio.name === "main") {
@@ -66,7 +76,7 @@ export default class Resources {
     return Resources.#models.has(name);
   }
   static async #load_entry(entry) {
-    const url = new URL(entry.url, document.baseURI);
+    const url = new URL(entry.url, Resources.#base);
     const context = Resources.#url_context(url, entry.url, entry.crease_angle);
     const loaded = await Resources.#parse_model(entry.url, await Resources.#load_text_data(url), context);
     const texture = entry.texture ? await Resources.#named_image(entry.texture) : undefined;
@@ -83,7 +93,7 @@ export default class Resources {
   static async #named_image(name) {
     const info = Resources.DATA.images.find((image) => image.name === name);
     if (!info) throw new Error(`No image "${name}" in data.json`);
-    return Resources.#url_image(new URL(info.url, document.baseURI).href, name);
+    return Resources.#url_image(new URL(info.url, Resources.#base).href, name);
   }
   static async #url_image(url, name = url) {
     if (!Resources.#images.has(url)) {

@@ -2,25 +2,25 @@
   "meshes": [
     {
       "name": "surfer",
-      "url": "./resources/meshes/surfer.obj",
+      "url": "./meshes/surfer.obj",
       "texture": "surfer"
     },
     {
       "name": "bowl",
-      "url": "./resources/meshes/bowl.obj",
+      "url": "./meshes/bowl.obj",
       "texture": "bowl"
     },
     {
       "name": "surfer_usd",
-      "url": "./resources/meshes/surfer.usda"
+      "url": "./meshes/surfer.usda"
     },
     {
       "name": "city_usd",
-      "url": "./resources/meshes/city.usda"
+      "url": "./meshes/city.usda"
     },
     {
       "name": "inkeeper",
-      "url": "./resources/meshes/inkeeper.usda",
+      "url": "./meshes/inkeeper.usda",
       "texture": "inkeeper",
       "preload": true,
       "clips": {
@@ -33,19 +33,19 @@
   "images": [
     {
       "name": "surfer",
-      "url": "./resources/images/texture_surfer.png"
+      "url": "./images/texture_surfer.png"
     },
     {
       "name": "bowl",
-      "url": "./resources/images/sphere.png"
+      "url": "./images/sphere.png"
     },
     {
       "name": "null",
-      "url": "./resources/images/texture_null.png"
+      "url": "./images/texture_null.png"
     },
     {
       "name": "inkeeper",
-      "url": "./resources/images/inkeeper_map.jpg"
+      "url": "./images/inkeeper_map.jpg"
     }
   ],
   "audios": []

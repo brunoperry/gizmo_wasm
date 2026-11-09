@@ -4,7 +4,7 @@ export default class WASM {
   constructor() {}
 
   static async initialize() {
-    const { instance } = await WebAssembly.instantiateStreaming(fetch("./src/gizmo.wasm"), {
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(new URL("./gizmo.wasm", import.meta.url)), {
       js: {
         console_log: WASM.wasm_log,
         info_log: WASM.wasm_info,

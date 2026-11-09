@@ -1,14 +1,13 @@
-import Light3D from "./Light3D.js";
-import Scene from "./Scene.js";
-import { vec3 } from "./math.js";
+import { Light3D, Scene, vec3 } from "gizmo";
 
 // A scene that just shows a model (from the Scene > Models list or a file):
 // the default light, and the camera framing everything from the front, a
-// little from above.
+// little from above. `entry`: the data.json entry shown, or null (a file).
 export default class ModelScene extends Scene {
   #light;
-  constructor(name, objects) {
+  constructor(name, objects, entry = null) {
     super(name);
+    this.entry = entry;
     for (const obj of objects) this.add_obj3d(obj);
 
     this.#light = new Light3D({

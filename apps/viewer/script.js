@@ -1,6 +1,7 @@
-import Engine from "./src/Engine.js";
+import { Engine, Resources } from "gizmo";
 import { UI } from "./src/UI.js";
 import TestScene from "./src/TestScene.js";
+import ModelScene from "./src/ModelScene.js";
 
 window.onload = async () => {
   /**
@@ -34,11 +35,11 @@ window.onload = async () => {
         ui.setAudio(engine.getAudioTrack(e.index));
         break;
       case UI.Actions.MESH:
-        load(e.mesh, () => engine.load_model(e.mesh));
+        load(e.mesh, () => load_model(e.mesh));
         break;
       case UI.Actions.OPEN_FILES:
         load(e.files.map((f) => f.name).join(", "), async () => {
-          for (const warning of await engine.open_files(e.files)) ui.log_error(warning);
+          for (const warning of await open_files(e.files)) ui.log_error(warning);
         });
         break;
       case UI.Actions.GRID:
@@ -64,7 +65,7 @@ window.onload = async () => {
         ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
         break;
       case Engine.States.SCENE_CHANGED:
-        ui.set_scene(data.model);
+        ui.set_scene(data.entry ?? null);
         update_hud();
         ui.log_console(`Loaded ${data.name}.`);
         break;
@@ -89,6 +90,20 @@ window.onload = async () => {
         break;
     }
   });
+  // A model from data.json (Scene > Models), by its entry name: downloaded
+  // the first time it's picked; the current scene stays until it's ready.
+  const load_model = async (name) => {
+    await Resources.load_model(name);
+    engine.load_scene(() => new ModelScene(name, Resources.get_objects(name), name));
+  };
+  // A model picked from the computer, with its textures (see
+  // Resources.load_files). Returns the loader's warnings.
+  const open_files = async (files) => {
+    const model = await Resources.load_files(files);
+    engine.load_scene(() => new ModelScene(model.name, model.objects));
+    return model.warnings;
+  };
+
   // Loads one scene at a time; errors go to the console bar.
   let busy = false;
   const load = async (what, task) => {
@@ -129,7 +144,10 @@ window.onload = async () => {
     ui.log_error("No mobile support :(");
     return;
   }
-  await engine.start_engine(TestScene);
+  await engine.start_engine(TestScene, {
+    canvas: document.querySelector("#canvas-container > canvas"),
+    data: "resources/data.json",
+  });
   ui.start_ui();
 };
 const check_mobile = () => {

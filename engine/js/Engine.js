@@ -3,7 +3,6 @@ import Resources from "./Resources.js";
 import InputController from "./InputController.js";
 import WASM from "./WASM.js";
 import AudioController from "./AudioControler.js";
-import ModelScene from "./ModelScene.js";
 
 export default class Engine {
   static States = {
@@ -49,13 +48,18 @@ export default class Engine {
     this.#listener = listener;
   }
 
-  async start_engine(scene) {
+  // Starts the engine and creates the first scene (a Scene subclass).
+  // options.canvas: where to draw (default: the page's first canvas); its
+  //   width/height are the render resolution.
+  // options.data: URL of the app's resource list (see Resources.initialize).
+  async start_engine(scene, { canvas = document.querySelector("canvas"), data = null } = {}) {
+    if (!canvas) throw new Error("Gizmo: no canvas to draw on");
     await WASM.initialize();
-    await Resources.initialize(this.#listener, Engine.States.LOADING);
+    await Resources.initialize(data, this.#listener, Engine.States.LOADING);
     InputController.initialize();
 
     // this.#audio = new AudioController();
-    this.#display = new Display();
+    this.#display = new Display(canvas);
 
     // From here on, wasm memory belongs to the scene (freed by load_scene),
     // textures included.
@@ -129,30 +133,20 @@ export default class Engine {
   }
 
   // Replaces the scene: frees the current one (wasm memory included), then
-  // `build()` creates the new one. Shows it right away, even while paused.
-  // SCENE_CHANGED gets { name, model }: the data.json entry shown, or null.
-  load_scene(build, model = null) {
+  // `build()` creates the new one (load its resources before: build runs
+  // with no scene). Shows it right away, even while paused. SCENE_CHANGED
+  // gets the new scene.
+  load_scene(build) {
     this.#scene = null;
     WASM.scene_clear();
     Resources.scene_cleared();
     this.#scene = build();
     this.#render();
     this.#display.update();
-    this.#listener(Engine.States.SCENE_CHANGED, { name: this.#scene.name, model });
+    this.#listener(Engine.States.SCENE_CHANGED, this.#scene);
   }
-  // A model from data.json (Scene > Models), by its entry name. Loaded the
-  // first time it's picked; the current scene stays until it's ready.
-  async load_model(name) {
-    await Resources.load_model(name);
-    this.load_scene(() => new ModelScene(name, Resources.get_objects(name)), name);
-  }
-  // A model picked from the computer, with its textures (see
-  // Resources.load_files). The current scene stays if the files can't be read.
-  // Returns the loader's warnings.
-  async open_files(files) {
-    const model = await Resources.load_files(files);
-    this.load_scene(() => new ModelScene(model.name, model.objects));
-    return model.warnings;
+  get scene() {
+    return this.#scene;
   }
 
   applyFilter(filter) {

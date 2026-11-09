@@ -1,5 +1,4 @@
-import Display from "./Display.js";
-import Resources from "./Resources.js";
+import { Display, Resources } from "gizmo";
 import "./GizmoMenu.js"; // <gizmo-menubar>, <gizmo-menu>, <gizmo-menu-item>
 
 export class UI {

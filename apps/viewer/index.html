@@ -10,6 +10,10 @@
   <link rel="icon" type="image/x-icon" href="resources/images/ico.png" />
   <link rel="preload" href="resources/font.woff" as="font" type="font/woff" crossorigin />
   <link rel="stylesheet" href="styles.css" />
+  <!-- "gizmo" = the engine (engine/js); point this elsewhere if it moves. -->
+  <script type="importmap">
+    { "imports": { "gizmo": "../../engine/js/index.js", "gizmo/": "../../engine/js/" } }
+  </script>
   <script type="module" src="script.js"></script>
 </head>
 

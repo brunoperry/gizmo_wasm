@@ -1,7 +1,4 @@
-import Light3D from "./Light3D.js";
-import Resources from "./Resources.js";
-import Scene from "./Scene.js";
-import { vec3 } from "./math.js";
+import { Light3D, Resources, Scene, vec3 } from "gizmo";
 
 export default class TestScene extends Scene {
   static ROTATION_SPEED = 60; // degrees per second
