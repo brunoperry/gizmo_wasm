@@ -56,6 +56,12 @@ export default class WASM {
     return WASM.#c_module.scene_clear();
   }
 
+  // Sky (clear color, a packed A<<24|B<<16|G<<8|R uint32, or null for the
+  // default) and fog between view depths near and far (far <= near: none).
+  static set_environment(sky, fog_near, fog_far) {
+    WASM.#c_module.set_environment(sky === null ? 0 : 1, sky ?? 0, fog_near, fog_far);
+  }
+
   // World-space box around every object: { min, max } as [x, y, z], or null
   // if there's nothing to bound.
   static scene_bounds() {

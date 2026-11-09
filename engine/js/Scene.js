@@ -18,6 +18,8 @@ export default class Scene {
 
   #lights_pointer;
   #ambient = Light3D.parse_color([0.3, 0.3, 0.3]);
+  #sky = null;
+  #fog = null;
 
   // default_light: a directional light (0.7, from above-front-right) that,
   // with the 0.3 ambient, lights any model decently. Off for scenes that
@@ -78,6 +80,33 @@ export default class Scene {
   set ambient(color) {
     this.#ambient = Light3D.parse_color(color);
     new Float32Array(WASM.mem, this.#lights_pointer + 4, 3).set([this.#ambient.r, this.#ambient.g, this.#ambient.b]);
+  }
+
+  // The background color ("#rrggbb", { r, g, b } or [r, g, b], 0..1), or
+  // null for the engine's default (translucent, shows the page behind).
+  get sky() {
+    return this.#sky;
+  }
+  set sky(color) {
+    this.#sky = color === null ? null : Light3D.parse_color(color);
+    this.#write_environment();
+  }
+  // Distance fog: { near, far } in view depth (world units). Things fade
+  // into the sky color from near and are gone at far, so set the camera's
+  // z_far to `far` and nothing pops in. null = no fog.
+  get fog() {
+    return this.#fog;
+  }
+  set fog(fog) {
+    this.#fog = fog ? { near: fog.near, far: fog.far } : null;
+    this.#write_environment();
+  }
+  #write_environment() {
+    const byte = (v) => Math.round(Math.min(Math.max(v, 0), 1) * 255);
+    const sky = this.#sky
+      ? ((255 << 24) | (byte(this.#sky.b) << 16) | (byte(this.#sky.g) << 8) | byte(this.#sky.r)) >>> 0
+      : null;
+    WASM.set_environment(sky, this.#fog?.near ?? 0, this.#fog?.far ?? 0);
   }
 
   update(delta) {

@@ -11,6 +11,10 @@
 int render_object(const object3d_t *obj, const camera_frame_t *frame, const lighting_t *lights,
                   int render_mode, int lighting);
 
+// 0 when the object's bounding box is entirely outside the view frustum
+// (or it has no triangles): render_object would draw nothing.
+int object_visible(const object3d_t *obj, const camera_frame_t *frame);
+
 // T * R * S, as used for rendering.
 mat4_t object_model_matrix(const object3d_t *obj);
 

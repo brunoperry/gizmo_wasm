@@ -213,6 +213,8 @@ EXPORT(scene_clear) int scene_clear(void)
     }
     if (gz_after(camera3d.position, scene_mark))
         camera_ready = 0;
+    display.has_sky = 0; // back to the default environment (see set_environment)
+    display.fog_near = display.fog_far = 0.0f;
     textures_release(scene_mark);
     skeletons_release(scene_mark);
     shadows_release(scene_mark);
@@ -222,6 +224,18 @@ EXPORT(scene_clear) int scene_clear(void)
 }
 
 EXPORT(cam_done) void cam_done(void) { camera_ready = camera3d.position != NULL; }
+
+// Scene environment. sky: the clear color (A<<24 | B<<16 | G<<8 | R), used
+// when has_sky, else the default translucent one. Fog fades into the clear
+// color between fog_near and fog_far (view depth); fog_far <= fog_near turns
+// it off.
+EXPORT(set_environment) void set_environment(int has_sky, uint32_t sky, float fog_near, float fog_far)
+{
+    display.has_sky = has_sky;
+    display.sky_color = sky;
+    display.fog_near = fog_near > 0.0f ? fog_near : 0.0f;
+    display.fog_far = fog_far;
+}
 
 // World-space box around every object, for framing the camera: returns 7
 // floats, min xyz, max xyz, then 1 if there was anything to bound (else 0).
@@ -262,7 +276,8 @@ EXPORT(update) void update(void)
     if (!display.color || !display.render_mode || !camera_ready || !light_ready)
         return;
 
-    display_clear(CLEAR_COLOR);
+    const uint32_t clear = display.has_sky ? display.sky_color : CLEAR_COLOR;
+    display_clear(clear);
 
     // Animation first: poses, then the vertices of skinned objects.
     animators_update();
@@ -288,7 +303,12 @@ EXPORT(update) void update(void)
     int lighting = display.render_mode[1];
     int total_tris = 0;
     for (int i = 0; i < total_objects; i++)
-        total_tris += render_object(objects[i], &frame, &lights, mode, lighting);
+        if (object_visible(objects[i], &frame))
+            total_tris += render_object(objects[i], &frame, &lights, mode, lighting);
+
+    // Fog covers the objects; the grid and gizmos stay on top of it.
+    if (display.fog_far > display.fog_near && mode != RENDER_WIRED)
+        display_fog(clear, display.fog_near, display.fog_far);
 
     if (grid && mode != RENDER_WIRED)
         render_grid(&frame);

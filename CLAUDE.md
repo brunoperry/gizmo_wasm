@@ -6,6 +6,7 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
 - `engine/C/`: the renderer in C, compiled to `engine/js/gizmo.wasm`.
 - `engine/js/`: the engine's JS side. `index.js` is its public API; the other modules are internal.
 - `apps/viewer/`: the model viewer (menus, HUD, `ModelScene`, `TestScene`, its `resources/` with `data.json`).
+- `apps/marginal/`: the racing game "Marginal" (see below), at `/apps/marginal/`.
 - `index.html` (root) redirects to `apps/viewer/`.
 - Rules:
   - The engine never imports from `apps/`.
@@ -20,6 +21,11 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
     - Input lives in optional controls: `scene.controls`, updated before `camera.update`. `FlyControls` is the editor-like one: mouse look, W A S D, F to frame all.
     - The viewer attaches FlyControls to every scene (READY / SCENE_CHANGED). A camera trace of 76 frames with keys and mouse matched the old built-in behavior exactly.
   - `new Scene(name, { default_light })`: the 0.7 directional default light is on unless `false`.
+  - `scene.sky = color` makes the clear color opaque (null = the default translucent one).
+    - `scene.fog = { near, far }` fades into the sky by view depth. Set `camera.z_far = far` to match.
+    - Both are reset by `load_scene` (C `set_environment`).
+  - Objects whose bounds are outside the frustum are skipped (`object_visible` in renderer.c).
+    - Big worlds should be split into tiles (separate meshes) so this helps.
   - The grid is off by default in the engine; the viewer turns it on.
   - Audio (`AudioControler.js`/`AudioTrack.js`) is an unfinished music-player design, left untouched. It is to be redesigned for games (engine sounds, effects) with Marginal.
 
@@ -73,6 +79,29 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
 - Validate changes against Pixar's library. Install it with `python3.12 -m pip install usd-core`; python 3.15 has no wheel.
   - Geometry: compare the mesh points against `pxr` (`UsdGeom`).
   - Skinning: compare against `UsdSkel.SkinningQuery.ComputeSkinnedPoints` × the skeleton's world transform. The last check matched to about 6e-6.
+
+## Marginal (`apps/marginal/`)
+- Free driving on the Avenida Marginal (EN6), Algés → Cruz Quebrada (~3 km). This is a proof of concept.
+  - The user picked: a mixed style (flat palette colors, textured road), free driving first, and chase + hood cameras (C).
+- The world is generated from OpenStreetMap, never edited by hand:
+  - `tools/fetch_osm.sh` downloads the area into `tools/osm/` (gitignored).
+  - `node apps/marginal/tools/build_world.mjs` writes:
+    - `resources/world/marginal.usda`: 200 m tiles, one mesh per tile and material (`palette` or `road`);
+    - `resources/world/map.json`: spawn, drivable road segments, collision walls, the EN6 route;
+    - `resources/images/palette.png`, `road.png` (from `tools/textures.mjs`).
+  - `node apps/marginal/tools/build_car.mjs` writes the placeholder car (`resources/meshes/car.usda`).
+  - World axes: x = east, z = south, 1 unit = 1 m, origin at 38.699, -9.241 (`tools/osm.mjs`).
+  - Flat colors are UVs pointing at one texel of `palette.png` (`palette_uv`), so a tile needs one texture.
+  - The world is flat (y = 0); layers get small y offsets so they don't z-fight (`Y` in build_world).
+  - The credit "© OpenStreetMap contributors" must stay visible in the game (ODbL).
+- Game code (`src/`):
+  - `WorldMap`: grid lookups on map.json for `on_road` and `collide`.
+  - `Car`: arcade physics with a 1/120 s fixed step. Forward and sideways speed; grip absorbs the sideways part (handbrake / off-road: less grip).
+  - `DriveCamera`: chase and hood cameras.
+  - `MarginalScene`: sky, fog to 380 m, the sun.
+  - `globalThis.marginal = { engine, world }` is there for the devtools console.
+- Controls: arrows / W A S D, Space = handbrake, C = camera, R = restart, P = pause.
+- Measured: ~1.3 ms per frame at the start view (~2.3k tris drawn of 21k). Culling saves ~15%; fog costs ~0.05 ms.
 
 ## Status and pending work (as of 2026-11-08)
 Done:

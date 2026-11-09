@@ -13,7 +13,13 @@ export default class InputController {
     SPACE: 32,
     J: 74,
     F: 70,
+    C: 67,
+    R: 82,
+    P: 80,
+    SHIFT: 16,
   };
+  // Keys whose browser default (page scrolling) is blocked while held.
+  static #NO_SCROLL = new Set([32, 37, 38, 39, 40]);
   static Buttons = new Array(3);
   static Button = {
     LEFT: 0,
@@ -33,12 +39,16 @@ export default class InputController {
     //keyboard stuff
     document.addEventListener("keydown", (e) => {
       InputController.Keys[e.keyCode] = true;
-      if (InputController.getKey(InputController.Key.SPACE)) {
+      // Not while typing in a form field.
+      const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, select, [contenteditable]");
+      if (InputController.#NO_SCROLL.has(e.keyCode) && !typing) {
         e.stopPropagation();
         e.preventDefault();
       }
     });
     document.addEventListener("keyup", (e) => (InputController.Keys[e.keyCode] = false));
+    // Keys released while the window wasn't focused never send keyup.
+    window.addEventListener("blur", () => InputController.Keys.fill(false));
 
     //mouse stuff
 

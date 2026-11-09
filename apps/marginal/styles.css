@@ -1,0 +1,107 @@
+@font-face {
+  font-family: "Fixedsys Excelsior";
+  src: url("../viewer/resources/font.woff") format("woff");
+  font-display: block;
+}
+
+:root {
+  --font: "Fixedsys Excelsior", ui-monospace, Menlo, monospace;
+  --bg: #11161b;
+  --fg: #e8e4d8;
+  --dim: #8a8f94;
+  --accent: #f2c94c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px var(--font);
+  font-synthesis: none;
+}
+
+#game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 16px;
+  gap: 8px;
+}
+
+/* The 320x240 frame scaled up in whole steps, without smoothing. */
+#screen {
+  position: relative;
+  width: min(960px, calc(100vw - 32px), calc((100vh - 112px) * 4 / 3));
+  aspect-ratio: 4 / 3;
+}
+
+#screen canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  background: #000;
+}
+
+#hud {
+  position: absolute;
+  right: 3%;
+  bottom: 3%;
+  font-size: 32px;
+  color: var(--fg);
+  text-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+}
+
+#hud .unit {
+  margin-left: 0.3em;
+  font-size: 16px;
+  color: var(--accent);
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgb(0 0 0 / 0.45);
+  text-shadow: 2px 2px 0 #000;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#overlay h1 {
+  margin: 0;
+  font-size: 64px;
+  font-weight: normal;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+#overlay p {
+  margin: 0;
+}
+
+#help,
+#credits {
+  margin: 0;
+  color: var(--dim);
+  text-align: center;
+}
+
+#credits a {
+  color: var(--dim);
+}

@@ -91,6 +91,23 @@ mat4_t object_model_matrix(const object3d_t *obj)
                                        mat4_make_scale(vec3_from_ptr(obj->scale))));
 }
 
+int object_visible(const object3d_t *obj, const camera_frame_t *f)
+{
+    if (!obj->num_triangles)
+        return 0;
+    const mat4_t mv = mat4_mul_mat4(f->view, object_model_matrix(obj));
+    const float *lo = obj->bounds_min, *hi = obj->bounds_max;
+    unsigned all = ~0u;
+    for (int k = 0; k < 8 && all; k++)
+    {
+        vec3_t q = mat4_mul_point(&mv, (k & 1) ? hi[0] : lo[0], (k & 2) ? hi[1] : lo[1], (k & 4) ? hi[2] : lo[2]);
+        cvert_t p;
+        p.x = q.x, p.y = q.y, p.z = q.z;
+        all &= outcode(&p, f);
+    }
+    return all == 0;
+}
+
 int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting_t *lt, int mode, int lighting)
 {
     const vec3_t scale = vec3_from_ptr(obj->scale);

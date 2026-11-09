@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marginal</title>
+  <link rel="preload" href="../viewer/resources/font.woff" as="font" type="font/woff" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- "gizmo" = the engine (engine/js). -->
+  <script type="importmap">
+    { "imports": { "gizmo": "../../engine/js/index.js", "gizmo/": "../../engine/js/" } }
+  </script>
+  <script type="module" src="script.js"></script>
+</head>
+
+<body>
+  <main id="game">
+    <div id="screen">
+      <canvas width="320" height="240"></canvas>
+      <div id="hud" hidden>
+        <span id="speed">0</span><span class="unit">km/h</span>
+      </div>
+      <div id="overlay">
+        <h1>MARGINAL</h1>
+        <p id="status">A carregar...</p>
+        <p id="start" hidden>Carrega numa tecla para conduzir</p>
+      </div>
+    </div>
+    <p id="help">
+      Setas / W A S D: conduzir · Espaço: travão de mão · C: câmara · R: recomeçar · P: pausa
+    </p>
+    <p id="credits">Algés → Cruz Quebrada · Mapa: <a href="https://www.openstreetmap.org/copyright" target="_blank"
+        rel="noopener">© OpenStreetMap contributors</a></p>
+  </main>
+</body>
+
+</html>

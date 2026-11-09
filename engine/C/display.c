@@ -34,6 +34,33 @@ void display_clear(uint32_t color)
     memset(display.depth, 0, length * sizeof(float)); // 0.0f == "infinitely far"
 }
 
+void display_fog(uint32_t color, float near, float far)
+{
+    const size_t length = (size_t)display.width * display.height;
+    uint32_t *restrict c = display.color;
+    const float *restrict depth = display.depth;
+    const float inv_range = 256.0f / (far - near);
+    // Red/blue and green/alpha in separate 16-bit lanes: one multiply per pair.
+    const uint32_t fog_rb = color & 0x00ff00ffu, fog_ag = (color >> 8) & 0x00ff00ffu;
+    // depth holds 1/z (0 = empty). Pixels closer than `near` keep their
+    // color, and empty ones already are `color` (the clear color): only the
+    // ones in between need work.
+    const float d_near = near > 0.0f ? 1.0f / near : 1e30f;
+    for (size_t i = 0; i < length; i++)
+    {
+        const float d = depth[i];
+        if (d >= d_near || d <= 0.0f)
+            continue;
+        float f = (1.0f / d - near) * inv_range;
+        f = f > 256.0f ? 256.0f : f;
+        const uint32_t t = (uint32_t)f, s = 256u - t;
+        const uint32_t px = c[i];
+        const uint32_t rb = ((px & 0x00ff00ffu) * s + fog_rb * t) >> 8;
+        const uint32_t ag = (((px >> 8) & 0x00ff00ffu) * s + fog_ag * t) >> 8;
+        c[i] = (rb & 0x00ff00ffu) | ((ag & 0x00ff00ffu) << 8);
+    }
+}
+
 // Barrel distortion strength (0 = none).
 #define BARREL_K 0.25f
 

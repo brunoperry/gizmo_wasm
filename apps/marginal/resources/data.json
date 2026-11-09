@@ -1,0 +1,16 @@
+{
+  "meshes": [
+    {
+      "name": "world",
+      "url": "./world/marginal.usda",
+      "preload": true
+    },
+    {
+      "name": "car",
+      "url": "./meshes/car.usda",
+      "preload": true
+    }
+  ],
+  "images": [],
+  "audios": []
+}
