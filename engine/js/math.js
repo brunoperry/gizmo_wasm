@@ -61,3 +61,10 @@ export const angleToRadians = (angle) => {
 export const radiansToAngle = (rad) => {
   return (rad * 180) / Math.PI;
 }
+
+// Smoothly approaches `target`: covers ~63% of the gap every `time_constant`
+// seconds, whatever the frame rate. 0 = no smoothing.
+export const smooth = (current, target, time_constant, delta) =>
+  time_constant > 0
+    ? current + (target - current) * (1 - Math.exp(-delta / time_constant))
+    : target;

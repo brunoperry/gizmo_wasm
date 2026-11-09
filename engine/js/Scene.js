@@ -11,23 +11,28 @@ export default class Scene {
   lights = [];
   animators = new Set(); // advanced every frame
   player;
-  light; // the default directional light
+  light = null; // the default directional light (see the constructor)
   camera;
+  controls = null; // moves the camera from the input, e.g. FlyControls (optional)
   name;
 
   #lights_pointer;
   #ambient = Light3D.parse_color([0.3, 0.3, 0.3]);
 
-  constructor(name = "unnamed") {
+  // default_light: a directional light (0.7, from above-front-right) that,
+  // with the 0.3 ambient, lights any model decently. Off for scenes that
+  // set up their own lights.
+  constructor(name = "unnamed", { default_light = true } = {}) {
     this.name = name;
     this.camera = new Camera3D();
     this.set_camera(this.camera);
 
     this.#lights_pointer = WASM.set_light_buffer();
     this.ambient = this.#ambient;
-    // Same look as the engine's original single light: 0.3 ambient + 0.7 directional.
-    this.light = new Light3D({ direction: vec3(-1, -1, -1), intensity: 0.7 });
-    this.add_light(this.light);
+    if (default_light) {
+      this.light = new Light3D({ direction: vec3(-1, -1, -1), intensity: 0.7 });
+      this.add_light(this.light);
+    }
   }
 
   add_obj3d(obj3d) {
@@ -77,6 +82,7 @@ export default class Scene {
 
   update(delta) {
     for (const animator of this.animators) animator.update(delta);
+    this.controls?.update(delta);
     this.camera.update(delta);
   }
 }

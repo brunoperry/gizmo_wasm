@@ -36,7 +36,7 @@ export default class Display {
     this.#render_mode_buffer = WASM.set_render_mode_buffer();
 
     this.render_mode = Display.RenderModes.TEXTURED;
-    this.show_grid = true;
+    this.show_grid = false;
   }
 
   update() {

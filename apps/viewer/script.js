@@ -1,4 +1,4 @@
-import { Engine, Resources } from "gizmo";
+import { Engine, FlyControls, Resources } from "gizmo";
 import { UI } from "./src/UI.js";
 import TestScene from "./src/TestScene.js";
 import ModelScene from "./src/ModelScene.js";
@@ -10,7 +10,6 @@ window.onload = async () => {
   const ui = new UI((e) => {
     switch (e.action) {
       case UI.Actions.PLAY_PAUSE:
-        engine.unlock = true;
         engine.is_running ? engine.stop() : engine.play();
         break;
       case UI.Actions.NEXT:
@@ -64,7 +63,12 @@ window.onload = async () => {
       case Engine.States.LIGHTING_CHANGED:
         ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
         break;
+      case Engine.States.RENDERED:
+        frame_info = data;
+        update_hud();
+        break;
       case Engine.States.SCENE_CHANGED:
+        fly(data);
         ui.set_scene(data.entry ?? null);
         update_hud();
         ui.log_console(`Loaded ${data.name}.`);
@@ -82,6 +86,8 @@ window.onload = async () => {
         ui.log_console(data);
         break;
       case Engine.States.READY:
+        fly(engine.scene);
+        engine.show_grid = true;
         ui.enable();
         ui.set_lighting(engine.lighting_mode, engine.show_light_gizmos, engine.shadows);
         ui.set_grid(engine.show_grid);
@@ -120,7 +126,10 @@ window.onload = async () => {
     }
   };
 
-  // HUD: refreshed on every rendered frame (C sends the triangle count).
+  // Every scene gets the editor-like camera: mouse look, W A S D, F.
+  const fly = (scene) => (scene.controls ??= new FlyControls(scene.camera));
+
+  // HUD: refreshed on every rendered frame (RENDERED gives the counts).
   let frame_info = null;
   const update_hud = () => {
     if (!ui.hud_visible) return;
@@ -135,10 +144,6 @@ window.onload = async () => {
       cam_rot: camera?.rotation,
     });
   };
-  document.addEventListener("wasm_info", (e) => {
-    frame_info = e.detail;
-    update_hud();
-  });
 
   if (check_mobile()) {
     ui.log_error("No mobile support :(");
@@ -147,6 +152,7 @@ window.onload = async () => {
   await engine.start_engine(TestScene, {
     canvas: document.querySelector("#canvas-container > canvas"),
     data: "resources/data.json",
+    pointer_lock: true,
   });
   ui.start_ui();
 };

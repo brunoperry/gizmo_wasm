@@ -19,12 +19,10 @@ export default class WASM {
   static wasm_log(a, b) {
     console.log("WASM", `line:${a}, val:${b}`);
   }
+  // What the last frame drew (C calls it at the end of update).
+  static stats = { tris: 0, verts: 0 };
   static wasm_info(num_tris, num_vertices) {
-    document.dispatchEvent(
-      new CustomEvent("wasm_info", {
-        detail: { verts: num_vertices, tris: num_tris },
-      })
-    );
+    WASM.stats = { tris: num_tris, verts: num_vertices };
   }
   static float_log(value) {
     console.log("float", value);

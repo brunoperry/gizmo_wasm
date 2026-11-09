@@ -45,13 +45,28 @@ The engine never imports from `apps/`. Each app imports it as `"gizmo"` through 
 ```
 
 ```js
-import { Engine, Scene, Light3D, Resources, vec3 } from "gizmo";
+import { Engine, Scene, FlyControls, Light3D, Resources, vec3 } from "gizmo";
 
-const engine = new Engine((state, data) => { /* Engine.States: READY, SCENE_CHANGED... */ });
-await engine.start_engine(MyScene, { canvas: document.querySelector("canvas"), data: "resources/data.json" });
+class MyScene extends Scene {
+  constructor() {
+    super("my scene"); // { default_light: false } to set up your own lights
+    this.controls = new FlyControls(this.camera); // optional: mouse look, W A S D, F = frame all
+  }
+}
+
+const engine = new Engine((state, data) => { /* Engine.States: READY, SCENE_CHANGED, RENDERED... */ });
+await engine.start_engine(MyScene, {
+  canvas: document.querySelector("canvas"), // its width/height = render resolution
+  data: "resources/data.json", // optional resource list; its urls are relative to it
+  pointer_lock: true, // optional: play() locks the mouse (for mouse look); Esc stops
+});
+engine.play();
 ```
 
-`data` is the app's resource list (optional); the urls inside it are relative to it. `engine.load_scene(() => new OtherScene())` replaces the scene and frees its memory.
+- `engine.load_scene(() => new OtherScene())` replaces the scene and frees its memory.
+- `Engine.States.RENDERED` comes after every frame with `{ tris, verts }`.
+- Nothing is drawn before the first frame (`play`, `playOnce` or `load_scene`). After that, changing a setting (render mode, shadows, grid...) redraws while paused.
+- The grid is off by default (`engine.show_grid = true`).
 
 ## Playing with different models
 

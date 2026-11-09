@@ -1,40 +1,26 @@
 import Display from "./Display.js";
 import WASM from "./WASM.js";
-import { vec3, vec3_cross } from "./math.js";
-import InputController from "./InputController.js";
+import { vec3, vec3_cross, smooth } from "./math.js";
 
-// Smoothly approaches `target`: covers ~63% of the gap every `time_constant`
-// seconds, whatever the frame rate. 0 = no smoothing.
-const smooth = (current, target, time_constant, delta) =>
-  time_constant > 0
-    ? current + (target - current) * (1 - Math.exp(-delta / time_constant))
-    : target;
-
+// The scene's camera: where it is, where it looks, and its lens. It doesn't
+// read any input: attach controls to the scene for that (see FlyControls).
 export default class Camera3D {
-  #MOVEMENT_SPEED = 6; // units per second
-  #ROTATE_SPEED = 0.002; // radians per mouse pixel
-  #MAX_PITCH = 1.5; // radians (~86 degrees), avoids flipping over the poles
+  // Pitch limit, in radians (~86 degrees): avoids flipping over the poles.
+  static MAX_PITCH = 1.5;
   #UP = vec3(0, 1, 0);
   #cam_buffer;
 
-  // Smoothing time constants, in seconds (0 = off). Bigger = softer.
-  look_smoothing = 0.04; // mouse look
-  move_smoothing = 0.12; // acceleration / braking
-  frame_smoothing = 0.08; // glide to the "frame all" position (F key)
+  frame_smoothing = 0.08; // seconds: glide to the "frame all" position (0 = jump)
   frame_margin = 1.1; // > 1 leaves some room around the framed objects
 
   #pos;
   #dir;
   #up;
 
-  // Orientation as angles: the mouse moves the target, the view follows it.
+  // Orientation as angles (the direction is derived from them).
   #yaw = 0;
   #pitch = 0;
-  #target_yaw = 0;
-  #target_pitch = 0;
-  #velocity = vec3(0, 0, 0);
   #frame_target = null; // where "frame all" is taking the camera
-  #frame_key_down = false;
 
   constructor(pos = vec3(0, 0, 0), dir = vec3(0, 0, 1.0), up = vec3(0, 1, 0)) {
     this.#pos = pos;
@@ -54,31 +40,31 @@ export default class Camera3D {
     this.z_near = 0.01;
     this.z_far = 100;
 
-    // this.#pos = vec3(-7.482987053782568, -0.3860208457046338, -4.445848639506135 );
-    // this.#dir = vec3(0.8430399624045004,  0.17509277691431607, 0.5085529876634602);
-
     this.position = this.#pos;
     this.direction = this.#dir;
 
     this.up = this.#up;
   }
 
+  // Called by the scene every frame (after its controls): glides towards
+  // the "frame all" position, if there is one.
   update(delta) {
-    this.#mouseUpdate(delta);
-    // F frames everything, once per key press.
-    const frame_key = !!InputController.getKey(InputController.Key.F);
-    if (frame_key && !this.#frame_key_down) this.frame_all();
-    this.#frame_key_down = frame_key;
-    if (this.#frame_target && !this.#moving()) this.#frameUpdate(delta);
-    else {
-      this.#frame_target = null; // WASD takes over
-      this.#checkInputs(delta);
-    }
+    if (!this.#frame_target) return;
+    const t = this.#frame_target, p = this.#pos;
+    const next = vec3(
+      smooth(p.x, t.x, this.frame_smoothing, delta),
+      smooth(p.y, t.y, this.frame_smoothing, delta),
+      smooth(p.z, t.z, this.frame_smoothing, delta),
+    );
+    if (Math.hypot(t.x - next.x, t.y - next.y, t.z - next.z) < 1e-3) {
+      this.position = t;
+      this.#frame_target = null;
+    } else this.position = next;
   }
 
   // Moves the camera back along its view direction until every object fits
   // in the frustum (like "frame all" in Maya). The view direction is kept.
-  // It glides there, or jumps when `immediate`.
+  // It glides there (see update), or jumps when `immediate`.
   frame_all(immediate = false) {
     const bounds = WASM.scene_bounds();
     if (!bounds) return;
@@ -111,76 +97,31 @@ export default class Camera3D {
     if (d + reach > this.z_far) this.z_far = (d + reach) * 1.1;
 
     this.#frame_target = vec3(c.x - f.x * d, c.y - f.y * d, c.z - f.z * d);
-    this.#velocity = vec3(0, 0, 0);
     if (immediate) {
       this.position = this.#frame_target;
       this.#frame_target = null;
     }
   }
-
-  #moving() {
-    const K = InputController.Key;
-    return [K.W, K.A, K.S, K.D].some((k) => InputController.getKey(k));
+  // Whether a "frame all" glide is under way.
+  get framing() {
+    return this.#frame_target !== null;
+  }
+  cancel_framing() {
+    this.#frame_target = null;
   }
 
-  #frameUpdate(delta) {
-    const t = this.#frame_target, p = this.#pos;
-    const next = vec3(
-      smooth(p.x, t.x, this.frame_smoothing, delta),
-      smooth(p.y, t.y, this.frame_smoothing, delta),
-      smooth(p.z, t.z, this.frame_smoothing, delta),
-    );
-    if (Math.hypot(t.x - next.x, t.y - next.y, t.z - next.z) < 1e-3) {
-      this.position = t;
-      this.#frame_target = null;
-    } else this.position = next;
+  // Orientation in radians: yaw turns around the up axis (0 looks down +z),
+  // pitch looks up (positive) or down, clamped to MAX_PITCH.
+  get yaw() {
+    return this.#yaw;
   }
-  #mouseUpdate(delta) {
-    const { dx, dy } = InputController.consumeMouseDelta();
-    // Mouse right turns right, mouse down looks down.
-    this.#target_yaw -= dx * this.#ROTATE_SPEED;
-    this.#target_pitch -= dy * this.#ROTATE_SPEED;
-    this.#target_pitch = Math.max(
-      -this.#MAX_PITCH,
-      Math.min(this.#MAX_PITCH, this.#target_pitch),
-    );
-
-    const yaw = smooth(this.#yaw, this.#target_yaw, this.look_smoothing, delta);
-    const pitch = smooth(this.#pitch, this.#target_pitch, this.look_smoothing, delta);
-    if (yaw === this.#yaw && pitch === this.#pitch) return;
+  get pitch() {
+    return this.#pitch;
+  }
+  set_angles(yaw, pitch) {
     this.#yaw = yaw;
-    this.#pitch = pitch;
+    this.#pitch = Math.max(-Camera3D.MAX_PITCH, Math.min(Camera3D.MAX_PITCH, pitch));
     this.#write_direction();
-  }
-  #checkInputs(delta) {
-    const key = (k) => (InputController.getKey(k) ? 1 : 0);
-    const forward = key(InputController.Key.W) - key(InputController.Key.S);
-    const strafe = key(InputController.Key.D) - key(InputController.Key.A);
-
-    // Wanted velocity: same speed in every direction, diagonals included.
-    const right = vec3_cross(this.#dir, this.#UP);
-    const right_len = Math.hypot(right.x, right.y, right.z) || 1;
-    let tx = this.#dir.x * forward + (right.x / right_len) * strafe;
-    let ty = this.#dir.y * forward + (right.y / right_len) * strafe;
-    let tz = this.#dir.z * forward + (right.z / right_len) * strafe;
-    const len = Math.hypot(tx, ty, tz);
-    const scale = len > 0 ? this.#MOVEMENT_SPEED / len : 0;
-    ((tx *= scale), (ty *= scale), (tz *= scale));
-
-    // Accelerate / brake towards it instead of jumping.
-    const v = this.#velocity;
-    v.x = smooth(v.x, tx, this.move_smoothing, delta);
-    v.y = smooth(v.y, ty, this.move_smoothing, delta);
-    v.z = smooth(v.z, tz, this.move_smoothing, delta);
-    if (Math.hypot(v.x, v.y, v.z) < 1e-4 && len === 0) {
-      v.x = v.y = v.z = 0;
-      return;
-    }
-    this.position = vec3(
-      this.#pos.x + v.x * delta,
-      this.#pos.y + v.y * delta,
-      this.#pos.z + v.z * delta,
-    );
   }
 
   #write_direction() {
@@ -214,16 +155,10 @@ export default class Camera3D {
   get direction() {
     return this.#dir;
   }
-  // Setting the direction (e.g. from a scene) points the camera there at once.
+  // Points the camera that way at once (controls follow from there).
   set direction(val) {
     const len = Math.hypot(val.x, val.y, val.z) || 1;
-    this.#yaw = this.#target_yaw = Math.atan2(val.x, val.z);
-    const pitch = Math.asin(Math.max(-1, Math.min(1, val.y / len)));
-    this.#pitch = this.#target_pitch = Math.max(
-      -this.#MAX_PITCH,
-      Math.min(this.#MAX_PITCH, pitch),
-    );
-    this.#write_direction();
+    this.set_angles(Math.atan2(val.x, val.z), Math.asin(Math.max(-1, Math.min(1, val.y / len))));
   }
 
   get aspect_x() {

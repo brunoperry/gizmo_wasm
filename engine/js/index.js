@@ -5,6 +5,7 @@ export { default as Scene } from "./Scene.js";
 export { default as Object3D } from "./Object3D.js";
 export { default as Light3D } from "./Light3D.js";
 export { default as Camera3D } from "./Camera3D.js";
+export { default as FlyControls } from "./FlyControls.js";
 export { default as Animator } from "./Animator.js";
 export { default as Resources } from "./Resources.js";
 export { default as Display } from "./Display.js";

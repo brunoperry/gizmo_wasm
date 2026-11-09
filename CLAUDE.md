@@ -12,9 +12,16 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Apps import the engine as `"gizmo"` (or `"gizmo/<module>.js"`) through an import map in their `index.html`.
   - The plan is to split `engine/` into its own repo once its API settles (`git subtree split`); then only the import map changes.
 - Engine API for apps:
-  - `engine.start_engine(SceneClass, { canvas, data })`: `data` is the app's resource list, and its urls are relative to the file.
+  - `engine.start_engine(SceneClass, { canvas, data, pointer_lock })`: `data` is the app's resource list, and its urls are relative to the file. `pointer_lock` makes `play()` lock the mouse, and losing the lock stops the loop. It is off by default; the viewer turns it on.
   - `engine.load_scene(build)`: swaps scenes and frees wasm memory. SCENE_CHANGED gets the new scene.
   - `WASM.initialize` loads `gizmo.wasm` next to `WASM.js` (`import.meta.url`).
+  - `Engine.States.RENDERED` fires after every render with `WASM.stats` (`{ tris, verts }`, from C `info_log`). It replaced the global "wasm_info" document event.
+  - The camera (`Camera3D`) reads no input. It has position, direction, `yaw`/`pitch` + `set_angles`, `frame_all(immediate)` and its glide (`update`).
+    - Input lives in optional controls: `scene.controls`, updated before `camera.update`. `FlyControls` is the editor-like one: mouse look, W A S D, F to frame all.
+    - The viewer attaches FlyControls to every scene (READY / SCENE_CHANGED). A camera trace of 76 frames with keys and mouse matched the old built-in behavior exactly.
+  - `new Scene(name, { default_light })`: the 0.7 directional default light is on unless `false`.
+  - The grid is off by default in the engine; the viewer turns it on.
+  - Audio (`AudioControler.js`/`AudioTrack.js`) is an unfinished music-player design, left untouched. It is to be redesigned for games (engine sounds, effects) with Marginal.
 
 ## Working with the user
 - Reply in European Portuguese.
@@ -54,7 +61,7 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - C (`skinning.c`) then skins with dual quaternions or linear blending.
   - skin matrix = to_object · global · inv_bind.
   - Skinning updates bounds and bumps `deform_version`.
-- **The `Engine` is locked** until "next" is clicked (a debug leftover in Engine.js, still to be moved out of the engine). Headless tests open `/apps/viewer/` and must click `#next` after each change before taking a screenshot.
+- **First frame:** the engine draws nothing before the first frame is shown (`play`, `playOnce` or `load_scene`). After that, setting changes redraw while paused. Headless tests open `/apps/viewer/` and click `#next` once to get a frame.
 
 ## USD loader (`engine/js/USDA.js`)
 - Supports `.usda` only. A data.json entry name holds all of a file's meshes: use `Resources.get_objects(name)`, and `get_object(primName)` for a single mesh.
@@ -72,7 +79,7 @@ Done:
 - usda loader;
 - point, spot and directional lights, plus per-triangle/vertex/pixel modes;
 - shadows;
-- smoothed camera, with "frame all" on the F key (`Camera3D.frame_all`, using the world bounds from `scene_bounds` in engine/C/gizmo.c);
+- smoothed camera controls (`FlyControls`), with "frame all" on the F key (`Camera3D.frame_all`, using the world bounds from `scene_bounds` in engine/C/gizmo.c);
 - skeletal animation with clips and crossfades;
 - normals computed at load time;
 - inkeeper texture resized to 512² (`inkeeper_map.jpg`).

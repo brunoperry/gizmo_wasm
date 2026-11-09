@@ -15,6 +15,7 @@ export default class Engine {
     LIGHTING_CHANGED: 6,
     DISPLAY_CHANGED: 7,
     SCENE_CHANGED: 8,
+    RENDERED: 9, // every rendered frame; data: { tris, verts } drawn
   };
 
   // Filters that stay on (applied to every frame) until toggled off; one at
@@ -23,8 +24,10 @@ export default class Engine {
   static PERSISTENT_FILTERS = ["fisheye", "barrel"];
   #filter = null;
 
-  //debug purposes
-  #locked = true;
+  // Nothing is drawn on the canvas until the first frame is shown (play,
+  // playOnce or load_scene); after that, setting changes redraw it.
+  #shown = false;
+  #pointer_lock = false;
 
   // #wasm = null;
   #display = null;
@@ -52,8 +55,11 @@ export default class Engine {
   // options.canvas: where to draw (default: the page's first canvas); its
   //   width/height are the render resolution.
   // options.data: URL of the app's resource list (see Resources.initialize).
-  async start_engine(scene, { canvas = document.querySelector("canvas"), data = null } = {}) {
+  // options.pointer_lock: play() locks the mouse pointer to the canvas (for
+  //   mouse look, see FlyControls) and losing the lock (Esc) stops the loop.
+  async start_engine(scene, { canvas = document.querySelector("canvas"), data = null, pointer_lock = false } = {}) {
     if (!canvas) throw new Error("Gizmo: no canvas to draw on");
+    this.#pointer_lock = pointer_lock;
     await WASM.initialize();
     await Resources.initialize(data, this.#listener, Engine.States.LOADING);
     InputController.initialize();
@@ -67,7 +73,7 @@ export default class Engine {
     this.#scene = new scene();
 
     document.addEventListener("pointerlockchange", (e) => {
-      if (!this.#display.lock_cursor) this.stop();
+      if (this.#pointer_lock && !this.#display.lock_cursor) this.stop();
     });
 
     this.#listener(Engine.States.READY, "Ready!");
@@ -77,10 +83,12 @@ export default class Engine {
     if (this.#loopID) return;
     // Without the lock there's no mouse look and Esc can't stop the loop,
     // so don't keep running if the browser refuses it.
-    this.#display.request_lock().catch((error) => {
-      console.warn("Pointer lock refused:", error.message);
-      this.stop();
-    });
+    if (this.#pointer_lock) {
+      this.#display.request_lock().catch((error) => {
+        console.warn("Pointer lock refused:", error.message);
+        this.stop();
+      });
+    }
     this.#previous_frame_time = performance.now();
     this.#loopID = requestAnimationFrame(() => this.#loop());
     // this.#audio.play();
@@ -97,7 +105,7 @@ export default class Engine {
   stop() {
     if (!this.#loopID) return;
 
-    this.#display.lock_cursor = false;
+    if (this.#pointer_lock) this.#display.lock_cursor = false;
     cancelAnimationFrame(this.#loopID);
     this.#loopID = null;
     // this.#audio.pause();
@@ -123,6 +131,7 @@ export default class Engine {
     this.#render();
 
     this.#display.update();
+    this.#shown = true;
 
     if (!once) this.#loopID = requestAnimationFrame(() => this.#loop());
   }
@@ -130,6 +139,7 @@ export default class Engine {
   #render() {
     WASM.update();
     if (this.#filter) WASM.apply_filter(this.#filter);
+    this.#listener(Engine.States.RENDERED, WASM.stats);
   }
 
   // Replaces the scene: frees the current one (wasm memory included), then
@@ -143,6 +153,7 @@ export default class Engine {
     this.#scene = build();
     this.#render();
     this.#display.update();
+    this.#shown = true;
     this.#listener(Engine.States.SCENE_CHANGED, this.#scene);
   }
   get scene() {
@@ -152,11 +163,7 @@ export default class Engine {
   applyFilter(filter) {
     if (Engine.PERSISTENT_FILTERS.includes(filter)) {
       this.#filter = this.#filter === filter ? null : filter;
-      // While paused, redraw so the change shows right away.
-      if (!this.#loopID) {
-        this.#render();
-        this.#display.update();
-      }
+      this.#refresh(); // while paused, show the change right away
       this.#listener(Engine.States.FILTER_CHANGED, this.#filter);
       return;
     }
@@ -173,9 +180,9 @@ export default class Engine {
 
   // Redraws the current frame while paused, so setting changes show at once.
   #refresh() {
-    if (this.#loopID) return;
+    if (this.#loopID || !this.#shown) return;
     this.#render();
-    if (!this.#locked) this.#display.update();
+    this.#display.update();
   }
 
   get lighting_mode() {
@@ -218,10 +225,7 @@ export default class Engine {
   }
   set render_mode(val) {
     this.#display.render_mode = val;
-    this.#render();
-
-    //debug purposes, clear the if statment for production
-    if (!this.#locked) this.#display.update();
+    this.#refresh();
 
     this.#listener(Engine.States.MODE_CHANGED);
   }
@@ -240,13 +244,5 @@ export default class Engine {
   }
   get fps() {
     return this.#current_fps;
-  }
-
-  //debug purposes
-  get unlock() {
-    return this.#locked;
-  }
-  set unlock(val) {
-    this.#locked = !val;
   }
 }
