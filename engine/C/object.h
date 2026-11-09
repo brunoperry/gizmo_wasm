@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_OBJECTS 256
+#define MAX_OBJECTS 1024
 
 struct skin_s;
 
@@ -23,6 +23,7 @@ typedef struct
     float *position;
     float *rotation;
     float *scale;
+    int32_t *casts_shadows; // written by javascript: 0 = left out of the shadow maps
 
     int texture_id;
 

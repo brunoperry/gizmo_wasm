@@ -25,7 +25,7 @@ enum
 // Float block written by javascript (see Scene.js / Light3D.js):
 //   header:    count, ambient r, ambient g, ambient b
 //   per light: type, intensity, range, cos_inner, cos_outer, r, g, b,
-//              position xyz, direction xyz, casts shadows, (1 unused)
+//              position xyz, direction xyz, casts shadows, shadow distance
 #define LIGHT_HEADER 4
 #define LIGHT_STRIDE 16
 extern float *light_data;
@@ -45,6 +45,9 @@ typedef struct
     uint32_t gizmo_color;
     vec3_t pos_world, dir_world; // dir_world: unit
     int casts_shadows;
+    // Directional: 0 = the shadow map holds every object; > 0 = it follows
+    // the camera and holds the view up to this depth (big worlds).
+    float shadow_distance;
     const shadow_t *shadow; // this frame's shadow map, NULL = no shadows
 } light_view_t;
 

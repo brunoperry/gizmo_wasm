@@ -9,6 +9,8 @@ export default class Object3D {
   #p_buffer;
   #r_buffer;
   #s_buffer;
+  #shadow_buffer; // int: casts shadows
+  #cast_shadows = true;
   #pos = vec3(0, 0, 0);
   #rot = vec3(0, 0, 0);
   #scl = vec3(1, 1, 1);
@@ -85,10 +87,12 @@ export default class Object3D {
     this.#p_buffer = buffers[3];
     this.#r_buffer = buffers[4];
     this.#s_buffer = buffers[5];
+    this.#shadow_buffer = buffers[7];
 
     this.position = vec3(0, 0, 0);
     this.rotation = vec3(0, 0, 0);
     this.scale = vec3(1, 1, 1);
+    this.cast_shadows = this.#cast_shadows;
   }
 
   clone() {
@@ -125,6 +129,18 @@ export default class Object3D {
     this.#scl = vec;
     if (!this.#s_buffer) return;
     new Float32Array(WASM.mem, this.#s_buffer, 3).set([vec.x, vec.y, vec.z]);
+  }
+
+  // false: the object is left out of the shadow maps (it still receives
+  // shadows). For ground and other things with nothing behind them: maps
+  // render faster and the lookups over them cost almost nothing.
+  get cast_shadows() {
+    return this.#cast_shadows;
+  }
+  set cast_shadows(on) {
+    this.#cast_shadows = !!on;
+    if (!this.#shadow_buffer) return;
+    new Int32Array(WASM.mem, this.#shadow_buffer, 1)[0] = this.#cast_shadows ? 1 : 0;
   }
 
   get name() {

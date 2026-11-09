@@ -46,7 +46,7 @@ ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert
                                const int tex_kind, const int lighting, const raster_params_t *p)
 {
     const int textured = tex_kind != TEX_NONE;
-    const int nattr = lighting == LIGHTING_VERTEX ? 3 : lighting == LIGHTING_PIXEL ? 6 : 0;
+    const int nattr = lighting == LIGHTING_VERTEX ? 3 : lighting == LIGHTING_PIXEL ? 6 : lighting == LIGHTING_SUN ? 4 : 0;
 
     const svert_t *t;
     if (v1->y < v0->y) t = v0, v0 = v1, v1 = t;
@@ -109,6 +109,9 @@ ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert
 
     const int flat_r = p->light[0], flat_g = p->light[1], flat_b = p->light[2];
     const uint32_t flat_color = color_modulate(p->color, flat_r, flat_g, flat_b);
+    const shadow_t *shadow = lighting == LIGHTING_SUN ? p->shadow : 0;
+    const float shadow_bias = shadow ? shadow_ortho_bias(shadow) : 0.0f;
+    const int sun_flat = lighting == LIGHTING_SUN && p->sun_flat;
 
     for (int y = y_start; y < y_end; y++)
     {
@@ -206,6 +209,8 @@ ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert
                     lf[k] = (int32_t)(a_start[k] * 256.0f * FIXED_ONE);
                     dlf[k] = (int32_t)((a_end[k] - a_start[k]) * 256.0f * FIXED_ONE * inv_n);
                 }
+            // LIGHTING_SUN: does the shadow map need sampling along this span?
+            const int sun_sample = shadow && !shadow_span_lit(shadow, a_start[1], a_start[2], a_end[1], a_end[2]);
 
             for (const int end = i + n; i < end; i++)
             {
@@ -236,6 +241,21 @@ ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert
                         lg = light_to_int(l.y);
                         lb = light_to_int(l.z);
                     }
+                    else if (lighting == LIGHTING_SUN)
+                    {
+                        const float visible = sun_sample && av[0] > 0.0f
+                                                  ? shadow_sample(shadow, 0, av[1], av[2], av[3] + shadow_bias)
+                                                  : 1.0f;
+                        if (sun_flat && visible == 1.0f) // the usual case: in full sun
+                            lr = p->lit[0], lg = p->lit[1], lb = p->lit[2];
+                        else if (av[0] > 0.0f)
+                        {
+                            const float k = av[0] * visible;
+                            lr = light_to_int(p->base.x + p->sun.x * k);
+                            lg = light_to_int(p->base.y + p->sun.y * k);
+                            lb = light_to_int(p->base.z + p->sun.z * k);
+                        }
+                    }
 
                     uint32_t c = color_modulate(base, lr, lg, lb);
                     cp[i] = (!textured || (c >> 24) == 0xFF) ? c : color_blend(c, cp[i]);
@@ -263,6 +283,7 @@ ALWAYS_INLINE void raster_impl(const svert_t *v0, const svert_t *v1, const svert
     {                                                                              \
     case LIGHTING_VERTEX: raster_impl(a, b, c, tk, LIGHTING_VERTEX, p); break;     \
     case LIGHTING_PIXEL: raster_impl(a, b, c, tk, LIGHTING_PIXEL, p); break;       \
+    case LIGHTING_SUN: raster_impl(a, b, c, tk, LIGHTING_SUN, p); break;           \
     default: raster_impl(a, b, c, tk, LIGHTING_TRIANGLE, p); break;                \
     }
 
@@ -371,7 +392,7 @@ void raster_line_depth(float x0, float y0, float iw0, float x1, float y1, float 
     }
 }
 
-void raster_depth(float *buf, int size, const float *a, const float *b, const float *c)
+void raster_depth(float *buf, unsigned char *cover, int size, const float *a, const float *b, const float *c)
 {
     const float *t;
     if (b[1] < a[1]) t = a, a = b, b = t;
@@ -402,6 +423,19 @@ void raster_depth(float *buf, int size, const float *a, const float *b, const fl
     const float inv_det = 1.0f / det;
     const float dz_dx = ((b[2] - a[2]) * dy2 - (c[2] - a[2]) * dy1) * inv_det;
     const float dz_dy = ((c[2] - a[2]) * dx1 - (b[2] - a[2]) * dx2) * inv_det;
+
+    // Cover: the blocks of the texels in the triangle's box, and of the ones
+    // just before them (a filtered lookup at texel t also reads t + 1).
+    int tx0 = (int)ceilf(min_x - 0.5f) - 1, tx1 = (int)ceilf(max_x - 0.5f) - 1;
+    if (tx0 < 0) tx0 = 0;
+    if (tx1 > size - 1) tx1 = size - 1;
+    if (tx0 > tx1)
+        return;
+    const int blocks = size >> SHADOW_BLOCK_SHIFT;
+    const int bx0 = tx0 >> SHADOW_BLOCK_SHIFT, bx1 = tx1 >> SHADOW_BLOCK_SHIFT;
+    for (int by = (y_start > 0 ? y_start - 1 : 0) >> SHADOW_BLOCK_SHIFT; by <= (y_end - 1) >> SHADOW_BLOCK_SHIFT; by++)
+        for (int bx = bx0; bx <= bx1; bx++)
+            cover[by * blocks + bx] = 1;
 
     const float slope_long = dx2 / dy2;
     const float slope_top = dy1 > 0 ? dx1 / dy1 : 0.0f;

@@ -27,6 +27,10 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Objects whose bounds are outside the frustum are skipped (`object_visible` in renderer.c).
     - Big worlds should be split into tiles (separate meshes) so this helps.
   - The grid is off by default in the engine; the viewer turns it on.
+  - For big worlds with shadows:
+    - `new Light3D({ shadow_distance })` (directional only): 0 = the map holds the whole scene; > 0 = the map follows the camera and holds the view up to that depth.
+    - `object.cast_shadows = false` leaves an object out of the shadow maps (it still receives shadows). Use it for the ground.
+    - At most 1024 objects (`MAX_OBJECTS` in engine/C/object.h; only arrays of pointers, cheap to raise).
   - Audio (`AudioControler.js`/`AudioTrack.js`) is an unfinished music-player design, left untouched. It is to be redesigned for games (engine sounds, effects) with Marginal.
 
 ## Working with the user
@@ -61,6 +65,8 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - point lights use a 6×256 cube;
   - lookups use 2×2 PCF with normal-offset bias;
   - maps are cached by a hash of light params, object transforms and `deform_version`.
+  - each map has a cover grid (blocks of 4×4 texels that hold any caster) and its summed-area table (`cover_sum`): `shadow_span_lit` tells with 4 reads that a span or triangle is in full sun, so it skips the lookups.
+- **Sun path** (renderer.c, `LIGHTING_SUN` in raster.c): PIXEL lighting with only directional lights doesn't evaluate the lights per pixel. Per triangle it works out `base` (ambient + the other lights) and the pixels only do `base + sun · lambert · shadow`; a flat triangle in full sun is drawn as TRIANGLE lighting. The result is the same as the general path.
 - **Animation (UsdSkel):**
   - JS (`Animator.js`) writes 3 floats per animator: `[frame_a, frame_b, weight_b]`.
   - C (`skeleton.c`) samples the frames with nlerp and crossfades.
@@ -81,29 +87,51 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Skinning: compare against `UsdSkel.SkinningQuery.ComputeSkinnedPoints` × the skeleton's world transform. The last check matched to about 6e-6.
 
 ## Marginal (`apps/marginal/`)
-- Free driving on the Avenida Marginal (EN6), Algés → Cruz Quebrada (~3 km). This is a proof of concept.
+- Free driving on the Avenida Marginal (EN6), Algés → Paço de Arcos (~7 km; Cruz Quebrada → Paço de Arcos was added on 2026-11-09). This is a proof of concept.
   - The user picked: a mixed style (flat palette colors, textured road), free driving first, and chase + hood cameras (C).
 - The world is generated from OpenStreetMap, never edited by hand:
-  - `tools/fetch_osm.sh` downloads the area into `tools/osm/` (gitignored).
+  - `tools/fetch_osm.sh` downloads the area into `tools/osm/` (gitignored), in parts: the OSM API only gives areas under 50000 nodes. build_world reads every `.osm` there as one (`read_osm_files`).
+  - To add a stretch: add a `get` line to fetch_osm.sh and widen `AREA` in build_world (both ends are walls).
   - `node apps/marginal/tools/build_world.mjs` writes:
-    - `resources/world/marginal.usda`: 200 m tiles, one mesh per tile and material (`palette` or `road`);
-    - `resources/world/map.json`: spawn, drivable road segments, collision walls, the EN6 route;
+    - `resources/world/marginal.usda`: 200 m tiles, up to 3 meshes per tile: `ground_<tx>_<tz>` (palette: land, water, streets, rails), `road_<tx>_<tz>` (the EN6 lanes, `road` texture), `solid_<tx>_<tz>` (palette: buildings, platforms, seawall, piers), plus `sea`;
+    - `resources/world/map.json`: spawn, drivable road segments, collision walls, the EN6 route, `terrain` (the height grid, in centimetres);
     - `resources/images/palette.png`, `road.png` (from `tools/textures.mjs`).
   - `node apps/marginal/tools/build_car.mjs` writes the placeholder car (`resources/meshes/car.usda`).
   - World axes: x = east, z = south, 1 unit = 1 m, origin at 38.699, -9.241 (`tools/osm.mjs`).
   - Flat colors are UVs pointing at one texel of `palette.png` (`palette_uv`), so a tile needs one texture.
-  - The world is flat (y = 0); layers get small y offsets so they don't z-fight (`Y` in build_world).
+  - Relief (`tools/terrain.mjs`):
+    - Heights come from SRTM (1 arc-second). `tools/fetch_dem.sh` downloads the tile into `tools/dem/` (gitignored); build_world needs it.
+    - The ground is a 40 m grid snapped to the tiles, each cell split in two triangles by the diagonal from its north-west corner. The SRTM data over the Tagus is noise, so everything outside the OSM land polygons is set to 2 m (`FLOOR`).
+    - The EN6 is levelled: one smoothed height profile along the longest carriageway; grid nodes within 65 m of any carriageway take it, blending back to the relief by 150 m. Result: slope ≤ 5.9% along the road, ≤ 1.3% across it.
+    - Everything flat (land, water, streets, rails, the EN6 lanes) is cut along the grid (`Terrain.drape`) and laid on the ground's triangles, with the ground's normal and a small lift so layers don't z-fight (`Y` in build_world). Buildings are blocks from below their lowest corner to their height above the highest.
+    - Now 421 meshes and ~78k triangles (5.8 MB usda; 205 meshes and 41k triangles for Algés → Cruz Quebrada).
+  - OSM data quirks the builder handles:
+    - The EN6 carriageways are joined by `chain_roads` (osm.mjs): the straightest way at forks, never a sharp turn. The plain `chain_ways` U-turned in Algés, where the two directions meet.
+    - Closed coastlines inside the area are islands (there's one off Paço de Arcos). Treating one as an open run turned the whole sea into land.
+    - Water edges are checked against the roads in 3 m pieces to leave a gap where a road crosses. Whole edges left an invisible wall across the EN6 on the Jamor bridge.
+    - Buildings that reach into the EN6's lanes are moved out of them (3 are, among them Algés station) or dropped if more than 4 m in.
   - The credit "© OpenStreetMap contributors" must stay visible in the game (ODbL).
 - Game code (`src/`):
-  - `WorldMap`: grid lookups on map.json for `on_road` and `collide`.
-  - `Car`: arcade physics with a 1/120 s fixed step. Forward and sideways speed; grip absorbs the sideways part (handbrake / off-road: less grip).
-  - `DriveCamera`: chase and hood cameras.
-  - `MarginalScene`: sky, fog to 380 m, the sun.
+  - `WorldMap`: grid lookups on map.json for `on_road` and `collide`; `height(x, z)` is exactly the ground mesh.
+  - `Car`: arcade physics with a 1/120 s fixed step, simulated seen from above (the user wants the feel of Midtown Madness).
+    - Forward and sideways speed; grip absorbs the sideways part (handbrake / off-road / braking hard: less grip).
+    - The car turns no faster than the tyres allow at its speed (`cornering` m/s²), so it runs wide when too fast. Slopes pull it (`ground_pitch`); `hold` keeps it parked on them.
+    - Height and tilt come from the ground under the 4 wheels. The body ("body" mesh) sits on 3 springs (roll, pitch, heave) driven by the car's acceleration: it leans in turns, dives and squats, and gets a jolt in a crash. This is only for show. The 4 wheel meshes stay on the ground, spin and steer.
+    - The tuning constants are the fields at the top of the class (`suspension_frequency`, `suspension_damping`, `roll_gain`, `pitch_gain`, `cornering`, `grip`, ...).
+    - Car model axes: +z forward, +x the car's left. `Object3D.rotation` is built as Rx · Ry · Rz, so poses are composed as matrices and converted (`euler` in Car.js).
+  - `DriveCamera`: chase camera (stays above the ground) and hood camera (follows the body's pitch).
+  - `MarginalScene`: sky, fog to 380 m, the sun with `shadow_distance` 70. Only the `solid_*` meshes and the car cast shadows.
+  - script.js turns on PIXEL lighting and shadows.
   - `globalThis.marginal = { engine, world }` is there for the devtools console.
 - Controls: arrows / W A S D, Space = handbrake, C = camera, R = restart, P = pause.
-- Measured: ~1.3 ms per frame at the start view (~2.3k tris drawn of 21k). Culling saves ~15%; fog costs ~0.05 ms.
+- Measured at the start view (~3.5k tris drawn, on a busy machine): triangle lighting 1.5–1.7 ms per frame, pixel 1.7 ms, pixel + shadows 2.9–3.0 ms, and 2.9–3.4 ms while the shadow map is redrawn every frame (driving). Along the new stretch: 1.7–2.7 ms. Ready ~0.7 s after the page opens; wasm memory 10 MB.
+  - Before the relief (2.3k tris drawn of 21k): triangle 1.2 ms, pixel + shadows 2.1 ms.
+  - Before the sun path and the cover grid, pixel + shadows took 6.9–7.9 ms.
+  - Culling saves ~15%; fog costs ~0.05 ms.
+- Checks for a rebuilt world (scripts are not in the repo): sample `WorldMap.collide` / `on_road` / `height` across the lanes of both carriageways (no walls, slopes), and drive both ways with an autopilot calling `car.update(1/60)` in a loop with `InputController.Keys` set (~5 min of driving each way).
+- Headless Chrome tests: a key the page doesn't `preventDefault` (letters, Enter) sent through CDP makes the page hidden, which pauses the game. Start with `marginal.engine.play()` and set `InputController.Keys[code]` for those keys.
 
-## Status and pending work (as of 2026-11-08)
+## Status and pending work (as of 2026-11-09)
 Done:
 - usda loader;
 - point, spot and directional lights, plus per-triangle/vertex/pixel modes;

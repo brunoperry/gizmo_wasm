@@ -51,6 +51,7 @@ void lighting_frame(lighting_t *out, const mat4_t *view)
         l->pos_world = vec3_new(s[8], s[9], s[10]);
         l->dir_world = vec3_normalize_or(vec3_new(s[11], s[12], s[13]), vec3_new(0, -1, 0));
         l->casts_shadows = s[14] != 0.0f;
+        l->shadow_distance = s[15];
         l->shadow = 0;
         l->pos = mat4_mul_point(view, s[8], s[9], s[10]);
         l->dir = vec3_normalize_or(mat4_mul_dir(view, vec3_new(s[11], s[12], s[13])), vec3_new(0, -1, 0));

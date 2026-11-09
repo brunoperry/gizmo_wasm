@@ -108,6 +108,76 @@ int object_visible(const object3d_t *obj, const camera_frame_t *f)
     return all == 0;
 }
 
+// Normals closer than this (cosine) count as equal / as nearly equal: see
+// sun_triangle. For nearly equal ones (within ~10 degrees) the interpolated
+// normal is at most 0.5% short of unit length: about one color step.
+#define FLAT_COS 0.99999f
+#define NEARLY_FLAT_COS 0.985f
+
+// LIGHTING_PIXEL for a triangle lit only by directional lights (see
+// render_object): sets params (lighting, light, base, sun, shadow) and
+// returns 1, or returns 0 when the triangle needs the general path (its
+// normals spread too much to interpolate the lambert term instead).
+//   n: the view-space unit normals of its corners.
+static int sun_triangle(const lighting_t *lt, int sun, int single, int has_normals, const vec3_t *n,
+                        raster_params_t *params)
+{
+    int flat = 1;
+    if (has_normals)
+    {
+        float spread = vec3_dot(n[0], n[1]);
+        const float d02 = vec3_dot(n[0], n[2]), d12 = vec3_dot(n[1], n[2]);
+        if (d02 < spread) spread = d02;
+        if (d12 < spread) spread = d12;
+        flat = spread > FLAT_COS;
+        if (!flat && !(single && spread > NEARLY_FLAT_COS))
+            return 0;
+    }
+
+    // Everything but the sun (only the ambient unless the triangle is flat).
+    vec3_t base = lt->ambient;
+    for (int i = 0; i < lt->count; i++)
+    {
+        if (i == sun)
+            continue;
+        const float lambert = -vec3_dot(n[0], lt->lights[i].dir);
+        if (lambert > 0.0f)
+            base = vec3_add(base, vec3_mul(lt->lights[i].color, lambert));
+    }
+    params->light[0] = light_to_int(base.x);
+    params->light[1] = light_to_int(base.y);
+    params->light[2] = light_to_int(base.z);
+    params->lighting = LIGHTING_TRIANGLE;
+    if (sun < 0)
+        return 1;
+
+    const light_view_t *l = &lt->lights[sun];
+    const float l0 = -vec3_dot(n[0], l->dir), l1 = -vec3_dot(n[1], l->dir), l2 = -vec3_dot(n[2], l->dir);
+    if (l0 <= 0.0f && l1 <= 0.0f && l2 <= 0.0f) // facing away from it
+        return 1;
+    if (flat && !l->shadow)
+    {
+        const vec3_t lit = vec3_add(base, vec3_mul(l->color, l0));
+        params->light[0] = light_to_int(lit.x);
+        params->light[1] = light_to_int(lit.y);
+        params->light[2] = light_to_int(lit.z);
+        return 1;
+    }
+    params->lighting = LIGHTING_SUN;
+    params->sun_flat = flat;
+    if (flat)
+    {
+        const vec3_t lit = vec3_add(base, vec3_mul(l->color, l0));
+        params->lit[0] = light_to_int(lit.x);
+        params->lit[1] = light_to_int(lit.y);
+        params->lit[2] = light_to_int(lit.z);
+    }
+    params->base = base;
+    params->sun = l->color;
+    params->shadow = l->shadow;
+    return 1;
+}
+
 int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting_t *lt, int mode, int lighting)
 {
     const vec3_t scale = vec3_from_ptr(obj->scale);
@@ -131,16 +201,45 @@ int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting
 
     if (lighting < LIGHTING_TRIANGLE || lighting > LIGHTING_PIXEL)
         lighting = LIGHTING_TRIANGLE;
-    const int nattr = mode == RENDER_WIRED ? 0
-                      : lighting == LIGHTING_VERTEX ? 3
-                      : lighting == LIGHTING_PIXEL ? 6
-                                                   : 0;
 
     raster_params_t params = {0};
     params.tex = textured ? tex : 0;
     params.color = SHADED_COLOR;
-    params.lighting = lighting;
     params.lights = lt;
+
+    // LIGHTING_PIXEL when every light is directional: the light at a pixel
+    // only depends on its normal and on shadows, not on its position. So for
+    // a (nearly) flat triangle most of it is known per triangle, and what's
+    // left for the rasterizer is `base + sun * lambert * shadow`
+    // (LIGHTING_SUN) or nothing at all (LIGHTING_TRIANGLE): much cheaper
+    // than evaluating every light at every pixel, with the same result.
+    //   sun:  the light that varies per pixel: the one with a shadow map (at
+    //         most one, or this path is off) or, without shadows, the only
+    //         light there is;
+    //   base: the ambient light + the other lights, which are constant when
+    //         the triangle is flat.
+    int sun_path = lighting == LIGHTING_PIXEL && mode != RENDER_WIRED && !lt->has_local;
+    int sun = -1;
+    for (int i = 0; i < lt->count && sun_path; i++)
+        if (lt->lights[i].shadow)
+        {
+            if (sun >= 0 || !lt->lights[i].shadow->ortho)
+                sun_path = 0;
+            sun = i;
+        }
+    const int single = lt->count == 1; // the sun is the only light: `base` is the ambient
+    if (sun < 0 && single)
+        sun = 0;
+    const shadow_t *sun_shadow = sun_path && sun >= 0 ? lt->lights[sun].shadow : 0;
+    // View space -> shadow map (x, y, closeness), and the normal offset
+    // against acne (as shadow_visibility).
+    mat4_t view_to_map = {0};
+    float shadow_offset = 0.0f;
+    if (sun_shadow)
+    {
+        view_to_map = mat4_mul_mat4(sun_shadow->world_to_face[0], lt->view_inv);
+        shadow_offset = shadow_ortho_offset(sun_shadow);
+    }
 
     const float half_w = display.width * 0.5f, half_h = display.height * 0.5f;
     const float sx_scale = half_w * f->proj_x, sy_scale = half_h * f->proj_y;
@@ -182,6 +281,7 @@ int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting
         }
 
         unsigned char selected[MAX_LIGHTS];
+        params.lighting = lighting;
         if (mode != RENDER_WIRED)
         {
             const vec3_t face_n = vec3_normalize_or(vec3_mul(cross, -1.0f), vec3_new(0, 0, -1));
@@ -212,26 +312,62 @@ int render_object(const object3d_t *obj, const camera_frame_t *f, const lighting
                 params.active = active;
                 params.active_count = num_active;
                 const vec3_t pos[3] = {a, b, c};
-                for (int j = 0; j < 3; j++)
-                {
-                    vec3_t n = face_n;
-                    if (np)
-                        n = vec3_normalize_or(mat4_mul_dir(&normal_mv, vec3_from_ptr(np + j * 3)), face_n);
-                    if (lighting == LIGHTING_VERTEX)
+                vec3_t n[3] = {face_n, face_n, face_n};
+                if (np)
+                    for (int j = 0; j < 3; j++)
+                        n[j] = vec3_normalize_or(mat4_mul_dir(&normal_mv, vec3_from_ptr(np + j * 3)), face_n);
+
+                if (lighting == LIGHTING_VERTEX)
+                    for (int j = 0; j < 3; j++)
                     {
-                        vec3_t l = lighting_eval(lt, active, num_active, pos[j], n);
+                        vec3_t l = lighting_eval(lt, active, num_active, pos[j], n[j]);
                         poly_a[j].a[0] = min1(l.x);
                         poly_a[j].a[1] = min1(l.y);
                         poly_a[j].a[2] = min1(l.z);
                     }
-                    else
+                else if (sun_path && sun_triangle(lt, sun, single, np != 0, n, &params))
+                {
+                    if (params.lighting == LIGHTING_SUN)
+                        for (int j = 0; j < 3; j++)
+                        {
+                            poly_a[j].a[0] = -vec3_dot(n[j], lt->lights[sun].dir);
+                            vec3_t q = vec3_new(0, 0, 0);
+                            if (sun_shadow)
+                                q = mat4_mul_point(&view_to_map, pos[j].x + n[j].x * shadow_offset,
+                                                   pos[j].y + n[j].y * shadow_offset, pos[j].z + n[j].z * shadow_offset);
+                            poly_a[j].a[1] = q.x, poly_a[j].a[2] = q.y, poly_a[j].a[3] = q.z;
+                        }
+                    // A flat triangle over a part of the map nothing was
+                    // drawn in has no shadow on it: one color.
+                    if (params.lighting == LIGHTING_SUN && params.sun_flat && sun_shadow)
                     {
-                        poly_a[j].a[0] = pos[j].x, poly_a[j].a[1] = pos[j].y, poly_a[j].a[2] = pos[j].z;
-                        poly_a[j].a[3] = n.x, poly_a[j].a[4] = n.y, poly_a[j].a[5] = n.z;
+                        float u0 = poly_a[0].a[1], u1 = u0, v0 = poly_a[0].a[2], v1 = v0;
+                        for (int j = 1; j < 3; j++)
+                        {
+                            const float u = poly_a[j].a[1], v = poly_a[j].a[2];
+                            u0 = u < u0 ? u : u0, u1 = u > u1 ? u : u1;
+                            v0 = v < v0 ? v : v0, v1 = v > v1 ? v : v1;
+                        }
+                        if (shadow_span_lit(sun_shadow, u0, v0, u1, v1))
+                        {
+                            params.lighting = LIGHTING_TRIANGLE;
+                            params.light[0] = params.lit[0], params.light[1] = params.lit[1], params.light[2] = params.lit[2];
+                        }
                     }
                 }
+                else
+                    for (int j = 0; j < 3; j++)
+                    {
+                        poly_a[j].a[0] = pos[j].x, poly_a[j].a[1] = pos[j].y, poly_a[j].a[2] = pos[j].z;
+                        poly_a[j].a[3] = n[j].x, poly_a[j].a[4] = n[j].y, poly_a[j].a[5] = n[j].z;
+                    }
             }
         }
+        const int nattr = mode == RENDER_WIRED ? 0
+                          : params.lighting == LIGHTING_VERTEX ? 3
+                          : params.lighting == LIGHTING_PIXEL ? 6
+                          : params.lighting == LIGHTING_SUN ? 4
+                                                            : 0;
 
         // Only clip against the planes the triangle actually crosses.
         cvert_t *poly = poly_a, *spare = poly_b;

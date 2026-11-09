@@ -7,6 +7,11 @@
 
 #define RASTER_MAX_ATTRS 6
 
+// A lighting mode only the rasterizer knows (after LIGHTING_PIXEL): per-pixel
+// lighting of a triangle whose light is `base + sun * (lambert * shadow)`,
+// which is all that directional lights need (see render_object).
+#define LIGHTING_SUN 3
+
 // Screen-space vertex ready for rasterization.
 //   x, y: pixel coordinates (pixel centers at .5)
 //   iw:   1 / view depth
@@ -14,6 +19,7 @@
 //   a:    lighting attributes premultiplied by iw:
 //         LIGHTING_VERTEX: light r, g, b
 //         LIGHTING_PIXEL:  view-space position xyz, normal xyz
+//         LIGHTING_SUN:    lambert, shadow map x, y, closeness
 typedef struct
 {
     float x, y, iw, u, v;
@@ -26,9 +32,14 @@ typedef struct
     uint32_t color;
     int lighting;   // LIGHTING_*
     int light[3];   // LIGHTING_TRIANGLE: light per channel (R, G, B), 0..256
+                    // LIGHTING_SUN: the same for `base` (where the sun doesn't reach)
+    int lit[3];     // LIGHTING_SUN, flat triangle: the same in full sun
+    int sun_flat;   // LIGHTING_SUN: the lambert term is the same all over the triangle
     const lighting_t *lights;     // LIGHTING_PIXEL
     const unsigned char *active;  // LIGHTING_PIXEL: lights reaching the triangle
     int active_count;
+    vec3_t base, sun;       // LIGHTING_SUN
+    const shadow_t *shadow; // LIGHTING_SUN: orthographic map, NULL = no shadows
 } raster_params_t;
 
 // All rasterizers clip to the display bounds, so any input is memory-safe.
@@ -43,8 +54,8 @@ void raster_line_depth(float x0, float y0, float iw0, float x1, float y1, float 
 
 // Shadow maps: rasterizes a triangle given as (x, y, value) into a size x size
 // float buffer, keeping the biggest value per texel. `value` must be linear
-// in screen space.
-void raster_depth(float *buf, int size, const float *a, const float *b, const float *c);
+// in screen space. Marks the blocks it may touch in `cover` (see SHADOW_BLOCK).
+void raster_depth(float *buf, unsigned char *cover, int size, const float *a, const float *b, const float *c);
 
 // Light value (1.0 = full) to the 0..256 range color_modulate uses.
 static inline int light_to_int(float l)

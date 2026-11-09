@@ -83,7 +83,8 @@ EXPORT(set_light_buffer) float *set_light_buffer(void)
     return light_data;
 }
 
-// Returns 7 values: vertices, uvs, normals, position, rotation, scale pointers + texture id
+// Returns 8 values: vertices, uvs, normals, position, rotation, scale pointers,
+// texture id, casts-shadows pointer
 EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_length, int n_length, int texture_id)
 {
     if (total_objects >= MAX_OBJECTS || v_length < 0 || uv_length < 0 || n_length < 0)
@@ -94,7 +95,7 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
     int uv_alloc = uv_length > num_triangles * 6 ? uv_length : num_triangles * 6;
 
     object3d_t *obj = gz_alloc(sizeof(object3d_t));
-    uint32_t *buffer = gz_alloc(7 * sizeof(uint32_t));
+    uint32_t *buffer = gz_alloc(8 * sizeof(uint32_t));
     if (!obj || !buffer)
         return NULL;
 
@@ -104,8 +105,11 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
     obj->position = alloc_floats(3);
     obj->rotation = alloc_floats(3);
     obj->scale = alloc_floats(3);
-    if (!obj->vertices || !obj->uvs || !obj->normals || !obj->position || !obj->rotation || !obj->scale)
+    obj->casts_shadows = gz_alloc(sizeof(int32_t));
+    if (!obj->vertices || !obj->uvs || !obj->normals || !obj->position || !obj->rotation || !obj->scale ||
+        !obj->casts_shadows)
         return NULL;
+    *obj->casts_shadows = 1;
 
     obj->num_triangles = num_triangles;
     obj->has_normals = n_length >= num_triangles * 9;
@@ -119,6 +123,7 @@ EXPORT(set_object_buffer) uint32_t *set_object_buffer(int v_length, int uv_lengt
     buffer[4] = (uint32_t)(uintptr_t)obj->rotation;
     buffer[5] = (uint32_t)(uintptr_t)obj->scale;
     buffer[6] = (uint32_t)texture_id;
+    buffer[7] = (uint32_t)(uintptr_t)obj->casts_shadows;
 
     pending_object = obj;
     return buffer;
@@ -292,7 +297,7 @@ EXPORT(update) void update(void)
     lighting_frame(&lights, &frame.view);
     int mode = display.render_mode[0];
     if (display.render_mode[3] && mode != RENDER_WIRED)
-        shadows_render(&lights, objects, total_objects);
+        shadows_render(&lights, objects, total_objects, &frame);
 
     // Wireframes write no depth: draw the grid first so it stays behind them.
     // Solid objects hide it through the depth buffer.

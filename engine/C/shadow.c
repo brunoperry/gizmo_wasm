@@ -1,5 +1,5 @@
-// Shadow maps: every frame, each shadow-casting light renders the closeness
-// of all objects into its map (no back-face culling, so open meshes and
+// Shadow maps: each shadow-casting light renders the closeness of the
+// objects into its map, whenever something it depends on changed (no back-face culling, so open meshes and
 // planes cast shadows too). See shadow.h for the lookups.
 #include <string.h>
 #include "shadow_pass.h"
@@ -25,14 +25,24 @@ static inline uint32_t hash_floats(uint32_t h, const float *f, int n)
     return h;
 }
 
-// Shadow maps depend on the light and on every object's transform, never on
-// the camera.
-static uint32_t signature(const light_view_t *l, object3d_t *const *objects, int count)
+// A directional light's map can follow the camera instead of holding every
+// object (light_view_t.shadow_distance): a square window in light space
+// (x, y: across the light), `radius` to each side of (cx, cy).
+typedef struct
+{
+    int on;
+    float cx, cy, radius;
+} window_t;
+
+// Shadow maps depend on the light and on every object's transform; on the
+// camera only through the window, which moves in whole texels.
+static uint32_t signature(const light_view_t *l, const window_t *w, object3d_t *const *objects, int count)
 {
     const float light[] = {(float)l->type, l->range, l->cos_outer,
                            l->pos_world.x, l->pos_world.y, l->pos_world.z,
-                           l->dir_world.x, l->dir_world.y, l->dir_world.z, (float)count};
-    uint32_t h = hash_floats(2166136261u, light, 10);
+                           l->dir_world.x, l->dir_world.y, l->dir_world.z, (float)count,
+                           (float)w->on, w->cx, w->cy, w->radius};
+    uint32_t h = hash_floats(2166136261u, light, 14);
     for (int o = 0; o < count; o++)
     {
         uint32_t id = (uint32_t)(uintptr_t)objects[o];
@@ -41,6 +51,7 @@ static uint32_t signature(const light_view_t *l, object3d_t *const *objects, int
         h = hash_floats(h, objects[o]->rotation, 3);
         h = hash_floats(h, objects[o]->scale, 3);
         h = (h ^ objects[o]->deform_version) * 16777619u; // animated poses
+        h = (h ^ (uint32_t)*objects[o]->casts_shadows) * 16777619u;
     }
     return h;
 }
@@ -75,8 +86,48 @@ static mat4_t light_basis(vec3_t forward, vec3_t origin)
                      {0, 0, 0, 1}}};
 }
 
-// Directional: an orthographic map fitted around every object's bounds.
-static int setup_directional(shadow_t *s, const light_view_t *l, object3d_t *const *objects, int count)
+// Objects left out of the map being rendered: they don't cast shadows, are
+// out of a light's range, or outside a directional light's window.
+static unsigned char skip[MAX_OBJECTS];
+
+// Where a directional light's map goes when it follows the camera: around
+// the sphere that holds the view up to shadow_distance. The sphere keeps its
+// size while the camera turns, and its centre moves in whole texels, so the
+// shadows' edges don't crawl.
+static window_t view_window(const light_view_t *l, const camera_frame_t *f, const mat4_t *view_inv)
+{
+    window_t w = {0, 0.0f, 0.0f, 0.0f};
+    const float dist = l->shadow_distance;
+    if (l->type != LIGHT_DIRECTIONAL || !(dist > 0.0f))
+        return w;
+
+    // The far corners of the view at depth `dist` are (tx, ty, dist): the
+    // sphere through them and the eye is centred `ahead` along the view.
+    const float tx = dist / f->proj_x, ty = dist / f->proj_y;
+    const float k = tx * tx + ty * ty;
+    float ahead = (dist * dist + k) / (2.0f * dist), radius = ahead;
+    if (ahead > dist) // very wide view: centred on the far plane
+        ahead = dist, radius = sqrtf(k);
+    // In steps, so a changing field of view rarely changes the texel size.
+    const float step = dist * 0.125f;
+    radius = ceilf(radius / step) * step;
+
+    const mat4_t basis = light_basis(l->dir_world, vec3_new(0, 0, 0));
+    const vec3_t c = mat4_mul_point(&basis, view_inv->m[0][3] + view_inv->m[0][2] * ahead,
+                                    view_inv->m[1][3] + view_inv->m[1][2] * ahead,
+                                    view_inv->m[2][3] + view_inv->m[2][2] * ahead);
+    const float texel = 2.0f * radius / SHADOW_SIZE;
+    w.on = 1;
+    w.cx = floorf(c.x / texel) * texel;
+    w.cy = floorf(c.y / texel) * texel;
+    w.radius = radius;
+    return w;
+}
+
+// Directional: an orthographic map fitted around the bounds of the objects
+// that cast shadows, or the window `w` (then only the ones over it are
+// drawn). Returns 0 when there is nothing to draw.
+static int setup_directional(shadow_t *s, const light_view_t *l, const window_t *w, object3d_t *const *objects, int count)
 {
     const mat4_t basis = light_basis(l->dir_world, vec3_new(0, 0, 0));
     float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f}; // no INFINITY under -ffast-math
@@ -84,6 +135,7 @@ static int setup_directional(shadow_t *s, const light_view_t *l, object3d_t *con
     {
         const mat4_t m = mat4_mul_mat4(basis, object_model_matrix(objects[o]));
         const float *bmin = objects[o]->bounds_min, *bmax = objects[o]->bounds_max;
+        float olo[3] = {1e30f, 1e30f, 1e30f}, ohi[3] = {-1e30f, -1e30f, -1e30f};
         for (int k = 0; k < 8; k++)
         {
             vec3_t q = mat4_mul_point(&m, (k & 1) ? bmax[0] : bmin[0], (k & 2) ? bmax[1] : bmin[1],
@@ -91,17 +143,45 @@ static int setup_directional(shadow_t *s, const light_view_t *l, object3d_t *con
             const float v[3] = {q.x, q.y, q.z};
             for (int i = 0; i < 3; i++)
             {
-                if (v[i] < lo[i]) lo[i] = v[i];
-                if (v[i] > hi[i]) hi[i] = v[i];
+                if (v[i] < olo[i]) olo[i] = v[i];
+                if (v[i] > ohi[i]) ohi[i] = v[i];
             }
+        }
+        const int outside = !objects[o]->num_triangles ||
+                            (w->on && (ohi[0] < w->cx - w->radius || olo[0] > w->cx + w->radius ||
+                                       ohi[1] < w->cy - w->radius || olo[1] > w->cy + w->radius));
+        skip[o] = outside || !*objects[o]->casts_shadows;
+        if (outside)
+            continue;
+        // The depth range also holds the objects that only receive shadows:
+        // their closeness must stay above 0, which means "empty" in the map.
+        if (olo[2] < lo[2]) lo[2] = olo[2];
+        if (ohi[2] > hi[2]) hi[2] = ohi[2];
+        if (skip[o])
+            continue;
+        for (int i = 0; i < 2; i++)
+        {
+            if (olo[i] < lo[i]) lo[i] = olo[i];
+            if (ohi[i] > hi[i]) hi[i] = ohi[i];
         }
     }
     if (!(hi[0] >= lo[0]) || !(hi[1] >= lo[1]))
         return 0;
 
-    // Pad a little so nothing sits exactly on the border.
-    float pad = 0.02f * ((hi[0] - lo[0]) > (hi[1] - lo[1]) ? hi[0] - lo[0] : hi[1] - lo[1]) + 1e-3f;
-    lo[0] -= pad, lo[1] -= pad, hi[0] += pad, hi[1] += pad, hi[2] += pad;
+    s->fade = 0.0f;
+    if (w->on)
+    {
+        lo[0] = w->cx - w->radius, hi[0] = w->cx + w->radius;
+        lo[1] = w->cy - w->radius, hi[1] = w->cy + w->radius;
+        hi[2] += 1e-3f;
+        s->fade = 1.0f / (SHADOW_SIZE / 16); // shadows fade out over the last texels
+    }
+    else
+    {
+        // Pad a little so nothing sits exactly on the border.
+        float pad = 0.02f * ((hi[0] - lo[0]) > (hi[1] - lo[1]) ? hi[0] - lo[0] : hi[1] - lo[1]) + 1e-3f;
+        lo[0] -= pad, lo[1] -= pad, hi[0] += pad, hi[1] += pad, hi[2] += pad;
+    }
 
     s->size = SHADOW_SIZE;
     s->faces = 1;
@@ -117,8 +197,14 @@ static int setup_directional(shadow_t *s, const light_view_t *l, object3d_t *con
     return 1;
 }
 
-static void setup_perspective(shadow_t *s, const light_view_t *l)
+static void setup_perspective(shadow_t *s, const light_view_t *l, object3d_t *const *objects, int count)
 {
+    for (int o = 0; o < count; o++)
+    {
+        const mat4_t model = object_model_matrix(objects[o]);
+        skip[o] = !*objects[o]->casts_shadows || !in_range(objects[o], &model, l);
+    }
+    s->fade = 0.0f;
     s->ortho = 0;
     s->origin = l->pos_world;
     s->z_near = l->range > 0.0f ? l->range * 0.001f : 0.01f;
@@ -155,7 +241,7 @@ typedef struct
 } lvert_t;
 
 // Perspective face: cull, clip against the near plane, project, rasterize.
-static void draw_perspective(const shadow_t *s, float *map, float far, const lvert_t *tri)
+static void draw_perspective(const shadow_t *s, float *map, unsigned char *cover, float far, const lvert_t *tri)
 {
     // Outside one side of the frustum (or entirely beyond the light's range)?
     unsigned out_all = 0x3F;
@@ -202,25 +288,28 @@ static void draw_perspective(const shadow_t *s, float *map, float far, const lve
         sv[i][2] = iz;
     }
     for (int i = 1; i < n - 1; i++)
-        raster_depth(map, s->size, sv[0], sv[i], sv[i + 1]);
+        raster_depth(map, cover, s->size, sv[0], sv[i], sv[i + 1]);
 }
 
 static void render_map(shadow_t *s, const light_view_t *l, object3d_t *const *objects, int count)
 {
     const size_t face_len = (size_t)s->size * s->size;
+    const size_t cover_len = face_len >> (2 * SHADOW_BLOCK_SHIFT);
     memset(s->map, 0, face_len * s->faces * sizeof(float));
+    memset(s->cover, 0, cover_len * s->faces);
     const float far = l->type == LIGHT_DIRECTIONAL ? 0.0f : l->range;
 
     for (int o = 0; o < count; o++)
     {
+        if (skip[o])
+            continue;
         const object3d_t *obj = objects[o];
         const mat4_t model = object_model_matrix(obj);
-        if (!in_range(obj, &model, l))
-            continue;
         for (int f = 0; f < s->faces; f++)
         {
             const mat4_t m = mat4_mul_mat4(s->world_to_face[f], model);
             float *map = s->map + face_len * f;
+            unsigned char *cover = s->cover + cover_len * f;
             const float *vp = obj->vertices;
             for (int t = 0; t < obj->num_triangles; t++, vp += 9)
             {
@@ -231,9 +320,28 @@ static void render_map(shadow_t *s, const light_view_t *l, object3d_t *const *ob
                     tri[i] = (lvert_t){q.x, q.y, q.z};
                 }
                 if (s->ortho)
-                    raster_depth(map, s->size, &tri[0].x, &tri[1].x, &tri[2].x);
+                    raster_depth(map, cover, s->size, &tri[0].x, &tri[1].x, &tri[2].x);
                 else
-                    draw_perspective(s, map, far, tri);
+                    draw_perspective(s, map, cover, far, tri);
+            }
+        }
+    }
+
+    if (s->ortho)
+    {
+        const int blocks = s->size >> SHADOW_BLOCK_SHIFT, stride = blocks + 1;
+        const unsigned char *cover = s->cover;
+        uint16_t *sum = s->cover_sum;
+        memset(sum, 0, stride * sizeof(uint16_t));
+        for (int y = 0; y < blocks; y++, cover += blocks)
+        {
+            sum += stride;
+            int row = 0;
+            sum[0] = 0;
+            for (int x = 0; x < blocks; x++)
+            {
+                row += cover[x];
+                sum[x + 1] = (uint16_t)(sum[x + 1 - stride] + row);
             }
         }
     }
@@ -245,11 +353,11 @@ void shadows_release(uintptr_t mark)
     {
         valid[i] = 0;
         if (gz_after(shadows[i].map, mark))
-            shadows[i].map = NULL;
+            shadows[i].map = NULL, shadows[i].cover = NULL, shadows[i].cover_sum = NULL;
     }
 }
 
-void shadows_render(lighting_t *lt, object3d_t *const *objects, int count)
+void shadows_render(lighting_t *lt, object3d_t *const *objects, int count, const camera_frame_t *frame)
 {
     for (int i = 0; i < lt->count; i++)
     {
@@ -259,7 +367,8 @@ void shadows_render(lighting_t *lt, object3d_t *const *objects, int count)
             continue;
 
         shadow_t *s = &shadows[i];
-        const uint32_t sig = signature(l, objects, count);
+        const window_t window = view_window(l, frame, &lt->view_inv);
+        const uint32_t sig = signature(l, &window, objects, count);
         if (valid[i] && signatures[i] == sig)
         {
             l->shadow = s; // nothing moved: last frame's map is still right
@@ -270,18 +379,23 @@ void shadows_render(lighting_t *lt, object3d_t *const *objects, int count)
         {
             // One allocation per slot that fits any light type.
             size_t flat = (size_t)SHADOW_SIZE * SHADOW_SIZE, cube = (size_t)6 * SHADOW_CUBE_SIZE * SHADOW_CUBE_SIZE;
-            s->map = gz_alloc((flat > cube ? flat : cube) * sizeof(float));
-            if (!s->map)
+            const size_t texels = flat > cube ? flat : cube;
+            float *map = gz_alloc(texels * sizeof(float));
+            s->cover = gz_alloc(texels >> (2 * SHADOW_BLOCK_SHIFT));
+            const size_t stride = (SHADOW_SIZE >> SHADOW_BLOCK_SHIFT) + 1;
+            s->cover_sum = gz_alloc(stride * stride * sizeof(uint16_t));
+            if (!map || !s->cover || !s->cover_sum)
                 continue;
+            s->map = map;
         }
 
         if (l->type == LIGHT_DIRECTIONAL)
         {
-            if (!setup_directional(s, l, objects, count))
+            if (!setup_directional(s, l, &window, objects, count))
                 continue;
         }
         else
-            setup_perspective(s, l);
+            setup_perspective(s, l, objects, count);
 
         render_map(s, l, objects, count);
         l->shadow = s;

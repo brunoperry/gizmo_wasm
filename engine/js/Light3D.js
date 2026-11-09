@@ -16,6 +16,9 @@ import WASM from "./WASM.js";
 //   inner_angle  SPOT: full brightness inside this angle from the axis (degrees)
 //   outer_angle  SPOT: no light outside this angle; smooth in between
 //   shadows      casts shadows when shadows are on (default true)
+//   shadow_distance  DIRECTIONAL: 0 (default) = the shadow map holds the whole
+//                scene; in a big world that leaves it too coarse, so give the
+//                view depth that gets shadows: the map then follows the camera
 export default class Light3D {
   static Types = { DIRECTIONAL: 0, POINT: 1, SPOT: 2 };
   static MAX_LIGHTS = 8; // keep in sync with MAX_LIGHTS in C/light3d.h
@@ -31,6 +34,7 @@ export default class Light3D {
   #inner_angle;
   #outer_angle;
   #shadows;
+  #shadow_distance;
 
   constructor({
     type = Light3D.Types.DIRECTIONAL,
@@ -42,6 +46,7 @@ export default class Light3D {
     inner_angle = 20,
     outer_angle = 30,
     shadows = true,
+    shadow_distance = 0,
   } = {}) {
     this.#type = type;
     this.#color = Light3D.parse_color(color);
@@ -52,6 +57,7 @@ export default class Light3D {
     this.#inner_angle = inner_angle;
     this.#outer_angle = outer_angle;
     this.#shadows = shadows;
+    this.#shadow_distance = shadow_distance;
   }
 
   // Called by Scene when the light is added (pointer) or removed (0).
@@ -80,6 +86,7 @@ export default class Light3D {
       this.#direction.y,
       this.#direction.z,
       this.#shadows ? 1 : 0,
+      this.#shadow_distance,
     ]);
   }
 
@@ -148,6 +155,13 @@ export default class Light3D {
   }
   set shadows(val) {
     this.#shadows = val;
+    this.#write();
+  }
+  get shadow_distance() {
+    return this.#shadow_distance;
+  }
+  set shadow_distance(val) {
+    this.#shadow_distance = val;
     this.#write();
   }
   get outer_angle() {

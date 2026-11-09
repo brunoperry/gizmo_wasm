@@ -1,7 +1,7 @@
 // The game's view of the world (resources/world/map.json, made by
 // tools/build_world.mjs): walls to collide with and the drivable roads,
-// looked up through a uniform grid so a query only checks nearby segments.
-// Everything is 2D on the ground plane: [x, z].
+// looked up through a uniform grid so a query only checks nearby segments,
+// and the ground's height. Walls and roads are 2D, seen from above: [x, z].
 const CELL = 16; // metres
 
 class SegmentGrid {
@@ -44,12 +44,30 @@ const closest = (x, z, ax, az, bx, bz) => {
 export default class WorldMap {
   #walls;
   #roads;
+  #terrain; // { x0, z0, cell, nx, nz }
+  #heights; // metres, (nx + 1) * (nz + 1), row by row (z)
   constructor(map) {
     this.data = map;
     this.spawn = map.spawn;
     this.attribution = map.attribution;
     this.#walls = new SegmentGrid(map.walls);
     this.#roads = new SegmentGrid(map.roads, (s) => s[4]);
+    this.#terrain = map.terrain;
+    this.#heights = Float32Array.from(map.terrain.heights, (cm) => cm / 100);
+  }
+
+  // Height of the ground at (x, z). The grid's cells are split in two
+  // triangles by the diagonal from their (x0, z0) corner, and the height is
+  // linear in each: exactly the ground's mesh (see tools/terrain.mjs).
+  height(x, z) {
+    const { x0, z0, cell, nx, nz } = this.#terrain, h = this.#heights;
+    const gx = (x - x0) / cell, gz = (z - z0) / cell;
+    const i = Math.min(nx - 1, Math.max(0, Math.floor(gx))), j = Math.min(nz - 1, Math.max(0, Math.floor(gz)));
+    const fx = Math.min(1, Math.max(0, gx - i)), fz = Math.min(1, Math.max(0, gz - j));
+    const n = j * (nx + 1) + i;
+    const h00 = h[n], h11 = h[n + nx + 2];
+    if (fx >= fz) return h00 + (h[n + 1] - h00) * fx + (h11 - h[n + 1]) * fz;
+    return h00 + (h11 - h[n + nx + 1]) * fx + (h[n + nx + 1] - h00) * fz;
   }
 
   // Whether (x, z) is on a road (asphalt) rather than off-road.

@@ -41,6 +41,17 @@ export function read_osm(path) {
   return { nodes, ways, relations };
 }
 
+// Several .osm files (neighbouring areas) as one. The OSM API gives every
+// way whole, so the same ids repeat across files with the same data.
+export function read_osm_files(paths) {
+  const all = { nodes: new Map(), ways: new Map(), relations: new Map() };
+  for (const path of paths) {
+    const osm = read_osm(path);
+    for (const key of ["nodes", "ways", "relations"]) for (const [id, v] of osm[key]) all[key].set(id, v);
+  }
+  return all;
+}
+
 // Local tangent plane around (lat0, lon0): good to centimetres over a few km.
 export function projection(lat0, lon0) {
   const k = (Math.PI / 180) * EARTH_RADIUS;
@@ -86,6 +97,64 @@ export function chain_ways(ways, directed) {
           break;
         }
       }
+    }
+    chains.push(chain);
+  }
+  return chains;
+}
+
+// One-way roads (dual carriageways) joined into the longest drives, as
+// chains of node ids. Where a road forks, the chain takes the straightest
+// way; turns sharper than `max_turn` (radians) are never taken, so a chain
+// doesn't U-turn where the two carriageways meet. Ways left over (slip
+// roads, crossovers) are chains of their own. `xz(id)`: a node's [x, z].
+export function chain_roads(ways, xz, max_turn = (75 * Math.PI) / 180) {
+  const pending = new Set(ways.map((w) => w.nodes.filter(xz)).filter((n) => n.length > 1));
+  const from = new Map(), to = new Map(); // node -> ways starting / ending there
+  for (const w of pending) {
+    if (!from.has(w[0])) from.set(w[0], []);
+    if (!to.has(w.at(-1))) to.set(w.at(-1), []);
+    from.get(w[0]).push(w);
+    to.get(w.at(-1)).push(w);
+  }
+  const heading = (a, b) => {
+    const [ax, az] = xz(a), [bx, bz] = xz(b);
+    return Math.atan2(bx - ax, bz - az);
+  };
+  const turn = (h0, h1) => Math.abs(((h1 - h0 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+  // The straightest of `candidates` from direction h, or null.
+  const best = (candidates, h, dir_of) => {
+    let pick = null, least = max_turn;
+    for (const w of candidates ?? []) {
+      if (!pending.has(w)) continue;
+      const t = turn(h, dir_of(w));
+      if (t < least) (least = t), (pick = w);
+    }
+    return pick;
+  };
+  const length = (w) => {
+    let d = 0;
+    for (let i = 1; i < w.length; i++) d += Math.hypot(xz(w[i])[0] - xz(w[i - 1])[0], xz(w[i])[1] - xz(w[i - 1])[1]);
+    return d;
+  };
+  const chains = [];
+  // Longest ways first: they are the main road, not its slip roads.
+  for (const seed of [...pending].sort((a, b) => length(b) - length(a))) {
+    if (!pending.has(seed)) continue;
+    pending.delete(seed);
+    let chain = [...seed];
+    for (;;) {
+      const n = chain.length;
+      const next = best(from.get(chain[n - 1]), heading(chain[n - 2], chain[n - 1]), (w) => heading(w[0], w[1]));
+      if (!next) break;
+      pending.delete(next);
+      chain = chain.concat(next.slice(1));
+    }
+    for (;;) {
+      const prev = best(to.get(chain[0]), heading(chain[0], chain[1]), (w) => heading(w.at(-2), w.at(-1)));
+      if (!prev) break;
+      pending.delete(prev);
+      chain = prev.concat(chain.slice(1));
     }
     chains.push(chain);
   }

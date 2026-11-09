@@ -2,4 +2,7 @@
 .mayaSwatches
 .DS_Store
 makefile
-engine/js/gizmo.wasmapps/marginal/tools/osm/
+engine/js/gizmo.wasm
+apps/marginal/tools/osm/
+apps/marginal/tools/dem/
+

@@ -1,4 +1,4 @@
-import { Engine, InputController } from "gizmo";
+import { Display, Engine, InputController } from "gizmo";
 import WorldMap from "./src/WorldMap.js";
 import MarginalScene from "./src/MarginalScene.js";
 
@@ -15,6 +15,9 @@ const engine = new Engine((state, data) => {
       status.textContent = "A carregar...";
       break;
     case Engine.States.READY:
+      // Per-pixel lighting with shadows (the sun: see MarginalScene).
+      engine.lighting_mode = Display.LightingModes.PIXEL;
+      engine.shadows = true;
       engine.playOnce(); // show the start line, still paused
       ready = true;
       status.textContent = "Marginal · EN6";

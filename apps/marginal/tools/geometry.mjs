@@ -74,7 +74,8 @@ export function triangulate(ring) {
   return tris;
 }
 
-// A mesh being built: shared points, one flat normal per triangle, indexed UVs.
+// A mesh being built: shared points (to the millimetre), one flat normal per
+// triangle, indexed UVs.
 export class Mesh {
   points = [];
   #point_index = new Map();
@@ -95,11 +96,11 @@ export class Mesh {
   }
 
   #point(p) {
-    const key = `${p[0].toFixed(2)},${p[1].toFixed(2)},${p[2].toFixed(2)}`;
+    const key = `${p[0].toFixed(3)},${p[1].toFixed(3)},${p[2].toFixed(3)}`;
     let i = this.#point_index.get(key);
     if (i === undefined) {
       i = this.points.length;
-      this.points.push([+p[0].toFixed(2), +p[1].toFixed(2), +p[2].toFixed(2)]);
+      this.points.push([+p[0].toFixed(3), +p[1].toFixed(3), +p[2].toFixed(3)]);
       this.#point_index.set(key, i);
       for (let k = 0; k < 3; k++) {
         this.min[k] = Math.min(this.min[k], p[k]);
@@ -122,13 +123,15 @@ export class Mesh {
   // A triangle of [x, y, z] points; its front face is counter-clockwise
   // (right-handed). With `facing` ([x, y, z]), the winding is flipped if
   // needed so the normal points that way. uv: one [u, v] or one per corner.
-  tri(a, b, c, uv, facing = null) {
+  // `normal` replaces the triangle's own normal: for small pieces of a
+  // bigger plane, whose rounded points would give a slightly different one.
+  tri(a, b, c, uv, facing = null, normal = null) {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
     const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const len = Math.hypot(nx, ny, nz);
     if (len < 1e-6) return;
-    const uvs = Array.isArray(uv[0]) ? uv : [uv, uv, uv];
+    const uvs = Array.isArray(uv[0]) ? [...uv] : [uv, uv, uv];
     if (facing && nx * facing[0] + ny * facing[1] + nz * facing[2] < 0) {
       [b, c] = [c, b];
       uvs.splice(1, 2, uvs[2], uvs[1]);
@@ -136,7 +139,8 @@ export class Mesh {
     }
     this.faces.push(this.#point(a), this.#point(b), this.#point(c));
     this.uv_faces.push(this.#uv(uvs[0]), this.#uv(uvs[1]), this.#uv(uvs[2]));
-    this.normals.push(+(nx / len).toFixed(3), +(ny / len).toFixed(3), +(nz / len).toFixed(3));
+    if (normal) this.normals.push(+normal[0].toFixed(3), +normal[1].toFixed(3), +normal[2].toFixed(3));
+    else this.normals.push(+(nx / len).toFixed(3), +(ny / len).toFixed(3), +(nz / len).toFixed(3));
   }
   // Quad a b c d (in order around it).
   quad(a, b, c, d, uv, facing = null) {

@@ -33,6 +33,7 @@ export const PALETTE = {
   car_light: "#f5f0cc",
   car_tail: "#7a0d12",
   car_trim: "#2c2c30",
+  car_hub: "#c9ccd0",
 };
 export const WALLS = ["wall_white", "wall_cream", "wall_ochre", "wall_pink", "wall_grey", "wall_yellow"];
 

@@ -151,7 +151,7 @@ export default class WASM {
       ),
       `object ${obj3D.name}`
     );
-    const buffers = new Int32Array(WASM.mem, obj_buffer, 7);
+    const buffers = new Int32Array(WASM.mem, obj_buffer, 8);
     obj3D.initialize(buffers);
     if (obj3D.skin && obj3D.animation) WASM.#set_skin(obj3D);
     WASM.#c_module.obj_done();
