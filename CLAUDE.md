@@ -76,7 +76,9 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
 - **First frame:** the engine draws nothing before the first frame is shown (`play`, `playOnce` or `load_scene`). After that, setting changes redraw while paused. Headless tests open `/apps/viewer/` and click `#next` once to get a frame.
 
 ## USD loader (`engine/js/USDA.js`)
-- Supports `.usda` only. A data.json entry name holds all of a file's meshes: use `Resources.get_objects(name)`, and `get_object(primName)` for a single mesh.
+- Supports `.usda` only. A data.json entry name holds all of a file's meshes: use `Resources.get_objects(name)`, and `get_object(primName)` for a single mesh. `Object3D.path` is the mesh's prim path.
+- Units: the file's own by default. `"to_meters": true` in a data.json entry (`USDA.load(text, warn, { to_meters })`) scales by `metersPerUnit` (USD's default when missing: 0.01). The viewer's models are in centimetres and don't use it; Marginal's world does (Maya exports in cm).
+- A mesh with no material gets its `primvars:displayColor` (one color: the average if it varies, with a warning).
 - Supported:
   - xformOps (rotate orders use the (x, y, z) values per axis; the op name only gives the order), upAxis Z;
   - variants, primvars (indexed or not), leftHanded orientation, holes;
@@ -89,13 +91,16 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
 ## Marginal (`apps/marginal/`)
 - Free driving on the Avenida Marginal (EN6), Algés → Paço de Arcos (~7 km; Cruz Quebrada → Paço de Arcos was added on 2026-11-09). This is a proof of concept.
   - The user picked: a mixed style (flat palette colors, textured road), free driving first, and chase + hood cameras (C).
-- The world is generated from OpenStreetMap, never edited by hand:
+- The world starts out generated from OpenStreetMap, then the user edits it in Maya/Blender (decided 2026-11-10): the `.usda` files are the source of truth and the game takes everything from them (see `WorldMap` below).
   - `tools/fetch_osm.sh` downloads the area into `tools/osm/` (gitignored), in parts: the OSM API only gives areas under 50000 nodes. build_world reads every `.osm` there as one (`read_osm_files`).
-  - To add a stretch: add a `get` line to fetch_osm.sh and widen `AREA` in build_world (both ends are walls).
+  - To add a stretch: add a `get` line to fetch_osm.sh, widen `AREA` and add an entry to `STRETCHES` in build_world, then add the new file to data.json.
+  - `tools/osm/alges_cruz_quebrada.osm` is tracked in git (committed before the .gitignore fix); the other .osm files aren't. Fetching again changes it: restore it with git.
   - `node apps/marginal/tools/build_world.mjs` writes:
-    - `resources/world/marginal.usda`: 200 m tiles, up to 3 meshes per tile: `ground_<tx>_<tz>` (palette: land, water, streets, rails), `road_<tx>_<tz>` (the EN6 lanes, `road` texture), `solid_<tx>_<tz>` (palette: buildings, platforms, seawall, piers), plus `sea`;
-    - `resources/world/map.json`: spawn, drivable road segments, collision walls, the EN6 route, `terrain` (the height grid, in centimetres);
-    - `resources/images/palette.png`, `road.png` (from `tools/textures.mjs`).
+    - one `.usda` per stretch (`STRETCHES`: tiles by their west edge): `resources/world/alges_cruz_quebrada.usda` (x ≥ -1800) and `cruz_quebrada_paco_de_arcos.usda`. 200 m tiles, up to 3 meshes per tile: `ground_<tx>_<tz>` (palette: land, water, streets, rails), `road_<tx>_<tz>` (the EN6 lanes, `road` texture), `solid_<tx>_<tz>` (palette: buildings, platforms, seawall, piers), plus `sea_<stretch>` and the `spawn` marker (in the stretch it's in);
+    - `resources/world/map.json`: only for tools and tests: attribution, area, stretch names, default spawn, the EN6 route (carriageways as point lists);
+    - `resources/images/palette.png`, `palette.json` (texel index of each color + `SURFACES`: which colors are asphalt / water), `road.png` (from `tools/textures.mjs`).
+  - **It never overwrites** a `.usda` or image that exists (hand edits): delete it or pass `--force`. palette.json is always written.
+  - data.json lists each stretch with `"world": true` (MarginalScene loads those) and `"to_meters": true`.
   - `node apps/marginal/tools/build_car.mjs` writes the placeholder car (`resources/meshes/car.usda`).
   - World axes: x = east, z = south, 1 unit = 1 m, origin at 38.699, -9.241 (`tools/osm.mjs`).
   - Flat colors are UVs pointing at one texel of `palette.png` (`palette_uv`), so a tile needs one texture.
@@ -112,7 +117,14 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
     - Buildings that reach into the EN6's lanes are moved out of them (3 are, among them Algés station) or dropped if more than 4 m in.
   - The credit "© OpenStreetMap contributors" must stay visible in the game (ODbL).
 - Game code (`src/`):
-  - `WorldMap`: grid lookups on map.json for `on_road` and `collide`; `height(x, z)` is exactly the ground mesh.
+  - `WorldMap` is built from the loaded world meshes (~14 ms), so edits need no build step. A mesh's role comes from its name or a group's (deepest match, any case; `mesh_kind`):
+    - `ground*`: driven on; its palette texel gives the surface (palette.json `surfaces`: asphalt, water; else off-road). `road*`: driven on, always asphalt (as is anything with road.png).
+    - `solid*`: collides (cut at 0.5 m above the ground into wall segments, kept with their height so walls under bridges don't touch the deck) and casts shadows.
+    - `spawn*`: a triangle; the car starts at its middle facing its tip (the corner across the shortest side). Not drawn. Falls back to map.json's spawn.
+    - anything else: only drawn.
+    - `height(x, z, y_max)` / `surface` / `on_road` / `blocked`: the highest ground triangle at or below `y_max` (the car passes its y + `Car.STEP_UP` = 1 m, so it drives under bridges). Null where there's none.
+    - `collide(x, z, r, y)`: walls, then water and no-ground (probes around the circle, bisection to the edge). The sea and the world's ends need no walls. The river edges are now right next to the shoulder on the Caxias and Jamor bridges (and between the carriageways on the Caxias bridge): the lanes and shoulders are free, the water isn't.
+    - Teleporting the car in tests: set `car.y = world.height(x, z)` too, or the ground above y + 1 m is ignored.
   - `Car`: arcade physics with a 1/120 s fixed step, simulated seen from above (the user wants the feel of Midtown Madness).
     - Forward and sideways speed; grip absorbs the sideways part (handbrake / off-road / braking hard: less grip).
     - The car turns no faster than the tyres allow at its speed (`cornering` m/s²), so it runs wide when too fast. Slopes pull it (`ground_pitch`); `hold` keeps it parked on them.
@@ -120,18 +132,18 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
     - The tuning constants are the fields at the top of the class (`suspension_frequency`, `suspension_damping`, `roll_gain`, `pitch_gain`, `cornering`, `grip`, ...).
     - Car model axes: +z forward, +x the car's left. `Object3D.rotation` is built as Rx · Ry · Rz, so poses are composed as matrices and converted (`euler` in Car.js).
   - `DriveCamera`: chase camera (stays above the ground) and hood camera (follows the body's pitch).
-  - `MarginalScene`: sky, fog to 380 m, the sun with `shadow_distance` 70. Only the `solid_*` meshes and the car cast shadows.
+  - `MarginalScene({ map, palette })`: builds `this.world`; sky, fog to 380 m, the sun with `shadow_distance` 70. Only `solid` meshes and the car cast shadows.
   - script.js turns on PIXEL lighting and shadows.
-  - `globalThis.marginal = { engine, world }` is there for the devtools console.
+  - `globalThis.marginal = { engine, world }` (world: a getter for the scene's) is there for the devtools console.
 - Controls: arrows / W A S D, Space = handbrake, C = camera, R = restart, P = pause.
 - Measured at the start view (~3.5k tris drawn, on a busy machine): triangle lighting 1.5–1.7 ms per frame, pixel 1.7 ms, pixel + shadows 2.9–3.0 ms, and 2.9–3.4 ms while the shadow map is redrawn every frame (driving). Along the new stretch: 1.7–2.7 ms. Ready ~0.7 s after the page opens; wasm memory 10 MB.
   - Before the relief (2.3k tris drawn of 21k): triangle 1.2 ms, pixel + shadows 2.1 ms.
   - Before the sun path and the cover grid, pixel + shadows took 6.9–7.9 ms.
   - Culling saves ~15%; fog costs ~0.05 ms.
-- Checks for a rebuilt world (scripts are not in the repo): sample `WorldMap.collide` / `on_road` / `height` across the lanes of both carriageways (no walls, slopes), and drive both ways with an autopilot calling `car.update(1/60)` in a loop with `InputController.Keys` set (~5 min of driving each way).
+- Checks for a changed world (scripts are not in the repo), in the browser on `marginal.world`: sample `collide` / `on_road` / `height` across the lanes of both carriageways in map.json's `en6` (no walls, slopes), and drive both ways with an autopilot calling `car.update(1/60)` in a loop with `InputController.Keys` set (~5 min of driving each way, 0.2 s to run). On 2026-11-10 (world from the meshes): no hits, ≤ 5.9% slope, both ends reached; the car stops at the sea, buildings and the world's ends.
 - Headless Chrome tests: a key the page doesn't `preventDefault` (letters, Enter) sent through CDP makes the page hidden, which pauses the game. Start with `marginal.engine.play()` and set `InputController.Keys[code]` for those keys.
 
-## Status and pending work (as of 2026-11-09)
+## Status and pending work (as of 2026-11-10)
 Done:
 - usda loader;
 - point, spot and directional lights, plus per-triangle/vertex/pixel modes;

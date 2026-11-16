@@ -3,6 +3,7 @@
 //     one texel (see palette_uv), so a whole tile is one object/texture.
 //   road.png: asphalt with lane markings, tiled along the road (v) and
 //     split in 4 lane variants across (u), see ROAD_LANES.
+import { existsSync, writeFileSync } from "node:fs";
 import { write_png } from "./png.mjs";
 
 export const PALETTE_SIZE = 16;
@@ -72,14 +73,29 @@ const noise = (x, y) => {
   return ((h ^ (h >>> 16)) & 0xff) / 255;
 };
 
-export function write_textures(dir) {
+// What the game makes of a ground face by its palette color (see WorldMap):
+// asphalt (full grip) or water (the car can't go there). Others: off-road.
+export const SURFACES = { street: "asphalt", river: "water", sea: "water" };
+
+// Writes palette.png, palette.json (the palette's layout and SURFACES, for
+// the game) and road.png. Images that exist are kept (they may have been
+// edited by hand) unless `overwrite`. Returns the files written.
+export function write_textures(dir, overwrite = false) {
+  const written = [];
+  const keep = (name) => existsSync(`${dir}/${name}`) && !overwrite;
   // Palette
   const p = new Uint8Array(PALETTE_SIZE * PALETTE_SIZE * 4);
   Object.values(PALETTE).forEach((color, i) => {
     const [r, g, b] = hex(color);
     p.set([r, g, b, 255], i * 4);
   });
-  write_png(`${dir}/palette.png`, PALETTE_SIZE, PALETTE_SIZE, p);
+  if (!keep("palette.png")) write_png(`${dir}/palette.png`, PALETTE_SIZE, PALETTE_SIZE, p), written.push("palette.png");
+  // Texel i of the palette is (i % size, floor(i / size)), top row first.
+  const layout = { size: PALETTE_SIZE, colors: Object.fromEntries(Object.keys(PALETTE).map((name, i) => [name, i])), surfaces: SURFACES };
+  writeFileSync(`${dir}/palette.json`, JSON.stringify(layout, null, 1) + "\n");
+  written.push("palette.json");
+  if (keep("road.png")) return written;
+  written.push("road.png");
 
   // Road
   const r = new Uint8Array(ROAD_W * ROAD_H * 4);
@@ -105,4 +121,5 @@ export function write_textures(dir) {
     }
   }
   write_png(`${dir}/road.png`, ROAD_W, ROAD_H, r);
+  return written;
 }

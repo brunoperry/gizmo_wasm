@@ -1,11 +1,15 @@
 // Builds Marginal's world from OpenStreetMap data:
-//   resources/world/marginal.usda  the meshes, in tiles (see TILE)
-//   resources/world/map.json       what the game needs: spawn, drivable
-//                                  roads, walls, the EN6 route, the ground's
-//                                  height grid
-//   resources/images/palette.png, road.png
+//   resources/world/<stretch>.usda  the meshes, in tiles (see TILE), one
+//                                   file per stretch of the EN6 (STRETCHES)
+//   resources/world/map.json        the EN6's route and the default spawn
+//   resources/images/palette.png, palette.json, road.png
 //
-// Usage: node apps/marginal/tools/build_world.mjs [file.osm ...]
+// The .usda files are a starting point to edit by hand (Maya, Blender...):
+// the game takes everything it needs from them (see src/WorldMap.js). So
+// files that exist are never overwritten: delete one, or pass --force, to
+// build it again. A new stretch only writes its own file.
+//
+// Usage: node apps/marginal/tools/build_world.mjs [--force] [file.osm ...]
 // (default: every .osm file in tools/osm/, see tools/fetch_osm.sh)
 // The relief comes from tools/dem/N38W010.hgt.gz (see tools/fetch_dem.sh).
 //
@@ -21,8 +25,10 @@ import { write_textures, palette_uv, WALLS, ROAD_LANES, lane_u, LANE_WIDTH, ROAD
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
+const FORCE = process.argv.includes("--force");
+const ARGS = process.argv.slice(2).filter((a) => a !== "--force");
 const OSM_DIR = join(HERE, "osm");
-const OSM_FILES = process.argv.length > 2 ? process.argv.slice(2)
+const OSM_FILES = ARGS.length ? ARGS
   : existsSync(OSM_DIR) ? readdirSync(OSM_DIR).filter((f) => f.endsWith(".osm")).sort().map((f) => join(OSM_DIR, f)) : [];
 if (!OSM_FILES.length) {
   console.error(`no .osm files in ${OSM_DIR}: run apps/marginal/tools/fetch_osm.sh`);
@@ -38,6 +44,12 @@ if (!existsSync(DEM_FILE)) {
 // to the west end of Paço de Arcos.
 const ORIGIN = [38.699, -9.241];
 const AREA = { x0: -5200, x1: 1750, z0: -900, z1: 1400 }; // z0 = north edge
+// The stretches, west to east, each its own .usda file: the tiles whose west
+// edge is at x >= x0 (and < the next stretch's x0). Boundaries on tile edges.
+const STRETCHES = [
+  { name: "cruz_quebrada_paco_de_arcos", x0: -1e9 },
+  { name: "alges_cruz_quebrada", x0: -1800 },
+];
 const KEEP_DISTANCE = 300; // metres from the EN6: buildings and streets further away are dropped
 const TILE = 200; // metres; each tile is up to three objects (culled together)
 
@@ -331,9 +343,6 @@ function add_block(mesh, ring, base, top, wall_uv, top_uv) {
   add_polygon(mesh, ring, top, top_uv);
 }
 
-// The drivable surface for the game: [x0, z0, x1, z1, half width].
-const drivable = [];
-
 // Lanes, textured. The OSM line is the middle of the carriageway; lanes go
 // left (median side) to right (kerb side).
 for (const c of carriageways) {
@@ -354,7 +363,6 @@ for (const c of carriageways) {
     }
     // Kerb-side shoulder and a pavement strip.
     ribbon([a, b], -half, -half - 0.6, Y.street, "street");
-    drivable.push([r2(a[0]), r2(a[1]), r2(b[0]), r2(b[1]), r2(half + 0.6)]);
   }
 }
 
@@ -370,8 +378,6 @@ for (const w of osm.ways.values()) {
   const pts = way_points(osm, w, proj).filter((p) => in_area(p, -20));
   if (pts.length < 2 || !pts.some((p) => near_en6(p))) continue;
   ribbon(pts, width / 2, -width / 2, Y.street, "street");
-  for (let i = 0; i + 1 < pts.length; i++)
-    drivable.push([r2(pts[i][0]), r2(pts[i][1]), r2(pts[i + 1][0]), r2(pts[i + 1][1]), width / 2]);
   street_count++;
 }
 
@@ -385,36 +391,6 @@ for (const w of osm.ways.values()) {
   ribbon(pts, 1.7, -1.7, Y.ballast, "ballast");
   ribbon(pts, 0.8, -0.8, Y.track, "rail");
 }
-
-// --- Walls (collision) ---------------------------------------------------------
-
-const walls = []; // [x0, z0, x1, z1]
-// Water edges the roads cross (bridges) get a gap for the road: the edge is
-// checked in pieces of up to 3 m, and the pieces off the roads are kept.
-const on_drivable = (a, b) => {
-  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  return drivable.some(([x0, z0, x1, z1, h]) => seg_distance(mid, [x0, z0], [x1, z1]) < h + 3 ||
-    seg_distance(a, [x0, z0], [x1, z1]) < h + 1 || seg_distance(b, [x0, z0], [x1, z1]) < h + 1);
-};
-const add_walls = (ring, closed, skip_on_roads = false) => {
-  const push = (a, b) => walls.push([r2(a[0]), r2(a[1]), r2(b[0]), r2(b[1])]);
-  for (let i = 0; i + (closed ? 0 : 1) < ring.length; i++) {
-    const a = ring[i], b = ring[(i + 1) % ring.length];
-    if (!skip_on_roads) {
-      push(a, b);
-      continue;
-    }
-    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3));
-    const at = (k) => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
-    let start = null; // first piece of the run being kept
-    for (let k = 0; k < n; k++) {
-      const off = !on_drivable(at(k), at(k + 1));
-      if (off && start === null) start = k;
-      if (!off && start !== null) push(at(start), at(k)), (start = null);
-    }
-    if (start !== null) push(at(start), b);
-  }
-};
 
 // --- Buildings ----------------------------------------------------------------
 
@@ -476,7 +452,6 @@ function add_building(id, t, ring) {
   const [low, high] = ground_range(ring);
   add_block(mesh, ring, low - 0.3, high + h, wall, roof);
   building_tris += mesh.triangles - before;
-  add_walls(ring, true);
   building_count++;
 }
 for (const w of osm.ways.values()) {
@@ -497,7 +472,6 @@ for (const w of osm.ways.values()) {
   if (ring.length < 3 || !in_area(ring[0])) continue;
   const [low, high] = ground_range(ring), uv = palette_uv("sidewalk");
   add_block(tile_mesh(...centroid(ring), "solid"), ring, low - 0.3, high + 0.9, uv, uv);
-  add_walls(ring, true);
 }
 
 // --- Land, sea, river ------------------------------------------------------------
@@ -516,13 +490,17 @@ for (const run of [...runs, ...islands.map((ring) => [...ring, ring[0]])]) {
         palette_uv("seawall"), [water[0], 0, water[1]]);
     }
   }
-  add_walls(run, false, true);
 }
 
-// The sea: one big plane under everything (fog hides its edges).
-const sea = global_mesh("sea", "palette");
+// The sea: a big plane under each stretch, from its west edge to the next
+// one's (the ends reach 6 km out; fog hides the edges).
 const S = 6000;
-sea.quad([-S, Y.sea, -S], [S, Y.sea, -S], [S, Y.sea, S], [-S, Y.sea, S], palette_uv("sea"), UP);
+STRETCHES.forEach((st, i) => {
+  const x0 = Math.max(st.x0, AREA.x0 - S), x1 = STRETCHES[i + 1]?.x0 ?? AREA.x1 + S;
+  const sea = global_mesh(`sea_${st.name}`, "palette");
+  sea.quad([x0, Y.sea, -S], [x1, Y.sea, -S], [x1, Y.sea, S], [x0, Y.sea, S], palette_uv("sea"), UP);
+  sea.stretch = st.name;
+});
 
 // Rivers and ponds (natural=water) over the land.
 const add_water = (ring, id) => {
@@ -531,7 +509,6 @@ const add_water = (ring, id) => {
   const c = centroid(ring);
   if (!near_en6(c, KEEP_DISTANCE + 300)) return;
   terrain.drape_polygon(ring, triangulate(ring), palette_uv("river"), Y.water, lay("ground"));
-  add_walls(ring, true, true);
 };
 for (const w of osm.ways.values())
   if (w.tags.natural === "water" && w.nodes[0] === w.nodes.at(-1)) add_water(way_points(osm, w, proj), w.id);
@@ -554,9 +531,6 @@ for (const w of osm.ways.values()) {
   ring = clean_ring(ring);
   if (ring.length >= 3) add_block(tile_mesh(...centroid(ring), "solid"), ring, Y.sea, Y.pier, uv, uv);
 }
-
-// The edge of the world.
-add_walls([[AREA.x0, AREA.z0], [AREA.x1, AREA.z0], [AREA.x1, AREA.z1], [AREA.x0, AREA.z1]], true);
 
 // --- Output ---------------------------------------------------------------------
 
@@ -581,38 +555,59 @@ let spawn = null;
   }
 }
 
+// The spawn marker: an arrow on the ground (the game hides it), its tip
+// pointing the way the car faces. Move or turn it in an editor.
+{
+  const fx = Math.sin(spawn.heading), fz = Math.cos(spawn.heading); // forward; left = (fz, -fx)
+  const y = terrain.height(spawn.x, spawn.z) + 0.5;
+  const at = (f, l) => [spawn.x + fx * f + fz * l, y, spawn.z + fz * f - fx * l];
+  const marker = global_mesh("spawn", "palette");
+  marker.tri(at(2, 0), at(-1, 1), at(-1, -1), palette_uv("car_body"), UP);
+  marker.stretch = STRETCHES.find((st, i) => spawn.x >= st.x0 && spawn.x < (STRETCHES[i + 1]?.x0 ?? 1e9)).name;
+}
+
 mkdirSync(join(APP, "resources/world"), { recursive: true });
 mkdirSync(join(APP, "resources/images"), { recursive: true });
-write_textures(join(APP, "resources/images"));
+const images = write_textures(join(APP, "resources/images"), FORCE);
 
+// Which stretch a mesh belongs to: tile meshes by their tile's west edge.
+const stretch_of = (mesh) => {
+  if (mesh.stretch) return mesh.stretch;
+  const m = /_(m?)(\d+)_m?\d+$/.exec(mesh.name);
+  const x = (m[1] ? -1 : 1) * +m[2] * TILE;
+  return STRETCHES.findLast((st) => x >= st.x0).name;
+};
 const mesh_list = [...meshes.values()].filter((m) => m.triangles).sort((a, b) => a.name.localeCompare(b.name));
-const usda = write_usda(mesh_list, { palette: "../images/palette.png", road: "../images/road.png" },
-  "Avenida Marginal (EN6), Alges - Paco de Arcos. Generated by apps/marginal/tools/build_world.mjs from OpenStreetMap data (c) OpenStreetMap contributors, ODbL, and NASA SRTM elevation data.");
-writeFileSync(join(APP, "resources/world/marginal.usda"), usda);
+const files = [];
+for (const st of STRETCHES) {
+  const list = mesh_list.filter((m) => stretch_of(m) === st.name);
+  const path = join(APP, `resources/world/${st.name}.usda`);
+  const usda = write_usda(list, { palette: "../images/palette.png", road: "../images/road.png" },
+    `Avenida Marginal (EN6), stretch ${st.name}. Generated by apps/marginal/tools/build_world.mjs from OpenStreetMap data (c) OpenStreetMap contributors, ODbL, and NASA SRTM elevation data.`);
+  const kept = existsSync(path) && !FORCE;
+  if (!kept) writeFileSync(path, usda);
+  files.push(`${st.name}.usda (${list.length} meshes, ${list.reduce((s, m) => s + m.triangles, 0)} triangles, ${(usda.length / 1e6).toFixed(2)} MB${kept ? ": exists, kept" : ""})`);
+}
 
+// Only for tools and tests (the game reads the world from the .usda files).
 const map = {
   attribution: "© OpenStreetMap contributors",
   origin: ORIGIN,
   area: AREA,
+  stretches: STRETCHES.map((st) => st.name),
   spawn,
   en6: carriageways.map((c) => c.pts.map(([x, z]) => [r2(x), r2(z)])),
-  roads: drivable,
-  walls,
-  // The ground: (nx + 1) * (nz + 1) node heights in centimetres, row by row
-  // (north to south). See tools/terrain.mjs for how a cell is interpolated.
-  terrain: {
-    x0: terrain.x0, z0: terrain.z0, cell: terrain.cell, nx: terrain.nx, nz: terrain.nz,
-    heights: Array.from(terrain.heights, (h) => Math.round(h * 100)),
-  },
 };
 writeFileSync(join(APP, "resources/world/map.json"), JSON.stringify(map));
 
 const tris = mesh_list.reduce((s, m) => s + m.triangles, 0);
 console.log(`carriageways: ${carriageways.map((c) => c.pts.length + " pts").join(", ")}`);
 console.log(`streets: ${street_count}, buildings: ${building_count} (${building_tris} tris; ${buildings_moved} moved off the EN6, ${buildings_dropped} dropped)`);
-console.log(`coast runs: ${runs.length}, islands: ${islands.length}, walls: ${walls.length}, drivable segments: ${drivable.length}`);
+console.log(`coast runs: ${runs.length}, islands: ${islands.length}`);
 const heights = Array.from(terrain.heights);
 console.log(`ground: ${terrain.nx} x ${terrain.nz} cells of ${CELL} m, ${Math.min(...heights)} to ${Math.max(...heights)} m, ${laid} triangles laid on it`);
 const kinds = Object.keys(KINDS).map((k) => `${mesh_list.filter((m) => m.name.startsWith(k + "_")).length} ${k}`);
-console.log(`meshes: ${mesh_list.length} (${kinds.join(", ")}), triangles: ${tris}, usda: ${(usda.length / 1e6).toFixed(2)} MB`);
+console.log(`meshes: ${mesh_list.length} (${kinds.join(", ")}), triangles: ${tris}`);
+for (const f of files) console.log(`  ${f}`);
+console.log(`images written: ${images.join(", ") || "none (they exist)"}`);
 console.log(`spawn: ${JSON.stringify(spawn)}`);

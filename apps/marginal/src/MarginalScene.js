@@ -1,5 +1,6 @@
 import { Light3D, Resources, Scene, InputController, vec3 } from "gizmo";
 import Car from "./Car.js";
+import WorldMap, { mesh_kind } from "./WorldMap.js";
 import DriveCamera from "./DriveCamera.js";
 
 // Free driving on the Marginal: the world (tools/build_world.mjs), the car,
@@ -12,10 +13,10 @@ export default class MarginalScene extends Scene {
   drive_camera;
   #r_down = false;
 
-  // world: a WorldMap (map.json)
-  constructor(world) {
+  // map: map.json; palette: palette.json (see WorldMap). The world is every
+  // data.json mesh entry with "world": true (one .usda file per stretch).
+  constructor({ map, palette }) {
     super("Marginal", { default_light: false });
-    this.world = world;
 
     this.sky = "#a8c4da";
     this.fog = { near: 140, far: MarginalScene.VIEW_DISTANCE };
@@ -31,8 +32,12 @@ export default class MarginalScene extends Scene {
     // Only what stands on the ground casts shadows (the "solid" meshes:
     // buildings, walls). The ground and the roads have nothing under them
     // to shade, and leaving them out of the shadow map is much faster.
-    for (const obj of Resources.get_objects("world")) {
-      obj.cast_shadows = obj.name.startsWith("solid");
+    const objects = Resources.DATA.meshes.filter((entry) => entry.world).flatMap((entry) => Resources.get_objects(entry.name));
+    const world = (this.world = new WorldMap(objects, palette, map));
+    for (const obj of objects) {
+      const kind = mesh_kind(obj);
+      if (kind === "spawn") continue; // the spawn marker isn't shown
+      obj.cast_shadows = kind === "solid";
       this.add_obj3d(obj);
     }
     const car_objects = Resources.get_objects("car");

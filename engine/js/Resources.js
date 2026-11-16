@@ -78,6 +78,7 @@ export default class Resources {
   static async #load_entry(entry) {
     const url = new URL(entry.url, Resources.#base);
     const context = Resources.#url_context(url, entry.url, entry.crease_angle);
+    context.to_meters = !!entry.to_meters;
     const loaded = await Resources.#parse_model(entry.url, await Resources.#load_text_data(url), context);
     const texture = entry.texture ? await Resources.#named_image(entry.texture) : undefined;
     // A USD file can hold several meshes; get_objects(entry.name) returns them all.
@@ -382,7 +383,7 @@ export default class Resources {
   // bound UsdPreviewSurface: the diffuse texture file, or a 1x1 texture of
   // the diffuse color. A "texture" in data.json overrides it.
   static async #parse_usd(text, context) {
-    const meshes = USDA.load(text, context.warn);
+    const meshes = USDA.load(text, context.warn, { to_meters: context.to_meters });
     if (!meshes.length) context.warn("no meshes found");
 
     const objects = [];

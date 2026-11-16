@@ -1,12 +1,12 @@
 import { Display, Engine, InputController } from "gizmo";
-import WorldMap from "./src/WorldMap.js";
 import MarginalScene from "./src/MarginalScene.js";
 
 const $ = (selector) => document.querySelector(selector);
 const overlay = $("#overlay"), status = $("#status"), start = $("#start");
 const speed = $("#speed"), hud = $("#hud");
 
-const world = new WorldMap(await (await fetch("resources/world/map.json")).json());
+const json = async (url) => (await fetch(url)).json();
+const [map, palette] = await Promise.all([json("resources/world/map.json"), json("resources/images/palette.json")]);
 
 let ready = false;
 const engine = new Engine((state, data) => {
@@ -54,7 +54,7 @@ document.addEventListener("visibilitychange", () => {
 try {
   await engine.start_engine(class extends MarginalScene {
     constructor() {
-      super(world);
+      super({ map, palette });
     }
   }, { canvas: $("#screen canvas"), data: "resources/data.json" });
 } catch (error) {
@@ -63,4 +63,9 @@ try {
 }
 
 // For the devtools console.
-globalThis.marginal = { engine, world };
+globalThis.marginal = {
+  engine,
+  get world() {
+    return engine.scene?.world;
+  },
+};

@@ -1,0 +1,37 @@
+{
+ "size": 16,
+ "colors": {
+  "land": 0,
+  "grass": 1,
+  "sea": 2,
+  "river": 3,
+  "seawall": 4,
+  "street": 5,
+  "sidewalk": 6,
+  "median": 7,
+  "ballast": 8,
+  "rail": 9,
+  "pier": 10,
+  "roof_tile": 11,
+  "roof_flat": 12,
+  "roof_dark": 13,
+  "wall_white": 14,
+  "wall_cream": 15,
+  "wall_ochre": 16,
+  "wall_pink": 17,
+  "wall_grey": 18,
+  "wall_yellow": 19,
+  "car_body": 20,
+  "car_glass": 21,
+  "car_tyre": 22,
+  "car_light": 23,
+  "car_tail": 24,
+  "car_trim": 25,
+  "car_hub": 26
+ },
+ "surfaces": {
+  "street": "asphalt",
+  "river": "water",
+  "sea": "water"
+ }
+}

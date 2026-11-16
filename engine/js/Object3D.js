@@ -75,6 +75,7 @@ export default class Object3D {
       uvs: expand(mesh_data.uvs, 2, 1),
       normals: complete_normals(expand(mesh_data.normals, 3, 2), mesh_data.vertices),
       name: mesh_data.name,
+      path: mesh_data.path ?? null,
       texture: mesh_data.texture,
       skin,
     });
@@ -145,6 +146,10 @@ export default class Object3D {
 
   get name() {
     return this.#obj_data.name;
+  }
+  // Where it came from in its file (USD prim path: "/World/Geometry/name"), or null.
+  get path() {
+    return this.#obj_data.path;
   }
   get vertices() {
     return this.#obj_data.vertices;

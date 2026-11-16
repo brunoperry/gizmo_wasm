@@ -8,10 +8,14 @@
 //     !resetXformStack!, is baked into the vertices, because a Gizmo object
 //     has a single transform.
 //   - upAxis "Z", converted to Gizmo's Y-up.
+//   - metersPerUnit, with the `to_meters` option: the file is scaled to
+//     metres (a Maya scene in centimetres has 0.01). Off by default: the
+//     file's own units are kept.
 //   - Variant sets: the selected variant is applied.
 //   - Materials: the diffuseColor of a UsdPreviewSurface, either a constant or
 //     a UsdUVTexture file. A mesh split into material GeomSubsets yields one
-//     mesh per subset.
+//     mesh per subset. A mesh without a material gets its displayColor (one
+//     color for the whole mesh: the average when it varies).
 //   - Skeletal animation (UsdSkel): skinned meshes get a `skin` with the
 //     skeleton, its animation resampled to whole frames, joint influences
 //     and the bind pose. See `skin` in load() below.
@@ -42,8 +46,9 @@ export default class USDA {
   //     frames (Float32Array, per frame per joint: translation xyz,
   //             rotation wxyz, scale xyz) }
   // Matrices are row-major, for column vectors (p' = M * p).
-  static load(text, warn = () => {}) {
-    return extract_meshes(USDA.parse(text), warn);
+  // options: { to_meters } (see above).
+  static load(text, warn = () => {}, options = {}) {
+    return extract_meshes(USDA.parse(text), warn, options);
   }
 
   // Returns the layer's pseudo-root prim:
@@ -646,7 +651,7 @@ const resolve_path = (path, base) => {
   return { prim, prop };
 };
 
-function extract_meshes(root, warn) {
+function extract_meshes(root, warn, { to_meters = false } = {}) {
   const index = new Map();
   const add_to_index = (prim) => {
     index.set(prim.path, prim);
@@ -677,7 +682,16 @@ function extract_meshes(root, warn) {
   const up_axis = root.meta.upAxis ?? "Y";
   if (up_axis !== "Y" && up_axis !== "Z") warn(`unknown upAxis "${up_axis}", assuming Y`);
   // Z-up to Y-up: (x, y, z) -> (x, z, -y)
-  const stage_matrix = up_axis === "Z" ? rotation("X", -90) : identity();
+  let stage_matrix = up_axis === "Z" ? rotation("X", -90) : identity();
+  if (to_meters) {
+    // USD's default is centimetres (0.01) when metersPerUnit isn't authored.
+    let meters = Number(root.meta.metersPerUnit ?? 0.01);
+    if (!(meters > 0 && meters < 1e6)) {
+      warn(`metersPerUnit ${root.meta.metersPerUnit} ignored`);
+      meters = 1;
+    }
+    if (meters !== 1) stage_matrix = mul(scaling([meters, meters, meters]), stage_matrix);
+  }
 
   const local_transform = (prim) => {
     const order = value_of(prim, "xformOpOrder");
@@ -920,6 +934,18 @@ function extract_meshes(root, warn) {
     return { values, index };
   };
 
+  // primvars:displayColor as a material ({ texture: null, color }): the
+  // average color (the engine has no per-vertex colors).
+  const display_color = (prim) => {
+    const values = numbers(value_of(prim, "primvars:displayColor") ?? []);
+    if (values.length < 3) return null;
+    const color = [0, 0, 0], n = Math.floor(values.length / 3);
+    for (let i = 0; i < n * 3; i++) color[i % 3] += values[i] / n;
+    if (n > 1 && values.some((v, i) => Math.abs(v - values[i % 3]) > 1e-3))
+      warn_once(`${prim.path}: displayColor varies over the mesh, using its average`);
+    return { texture: null, color };
+  };
+
   const pick_uv_name = (prim) => {
     for (const name of UV_NAMES) if (prim.attrs.has(name)) return name;
     for (const [name, attr] of prim.attrs) {
@@ -1088,7 +1114,7 @@ function extract_meshes(root, warn) {
         uvs: uv ? uv.values : [],
         normals: normals ? normals.values : [],
         faces: group.faces,
-        material: material_of(group.binding),
+        material: material_of(group.binding) ?? display_color(prim),
         ...(skin ? { skin } : {}),
       });
     }

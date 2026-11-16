@@ -71,6 +71,7 @@ class Spring {
 export default class Car {
   // Tuning (SI units: metres, seconds, radians)
   static STEP = 1 / 120; // physics time step
+  static STEP_UP = 1; // m: the highest step the wheels climb (higher surfaces are bridges overhead)
   wheelbase = WHEEL_Z * 2;
   top_speed = 58; // m/s (~210 km/h)
   accel = 7.5; // m/s² from standstill
@@ -151,7 +152,8 @@ export default class Car {
     this.z = s.z;
     this.heading = s.heading;
     this.forward_speed = this.side_speed = this.steer = this.turn_rate = 0;
-    this.#ground();
+    this.y = this.#world.height(this.x, this.z) ?? 0;
+    this.#ground(true);
     this.#heave.set(this.y);
     this.#pitch.set(this.ground_pitch);
     this.#roll.set(this.ground_roll);
@@ -196,7 +198,7 @@ export default class Car {
     const braking = key(K.DOWN, K.S);
     const handbrake = key(K.SPACE);
     const steer_input = key(K.LEFT, K.A) - key(K.RIGHT, K.D);
-    this.on_road = this.#world.on_road(this.x, this.z);
+    this.on_road = this.#world.on_road(this.x, this.z, this.y + Car.STEP_UP);
     const before = this.#velocity();
 
     // Steering: the wheels turn at a limited rate, less at speed.
@@ -262,7 +264,7 @@ export default class Car {
     const axle = this.wheelbase / 2;
     for (const side of [1, -1]) {
       const cx = this.x + fx * axle * side, cz = this.z + fz * axle * side;
-      const hit = this.#world.collide(cx, cz, this.radius);
+      const hit = this.#world.collide(cx, cz, this.radius, this.y);
       if (!hit) continue;
       this.x += hit.x;
       this.z += hit.z;
@@ -282,13 +284,16 @@ export default class Car {
     if (this.impact > 0) this.#set_velocity(vx, vz);
   }
 
-  // Reads the ground under the wheels.
-  #ground() {
+  // Reads the ground under the wheels: the highest surface up to a step
+  // above the car (so it drives under bridges), or anything on a reset.
+  #ground(reset = false) {
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+    const y_max = reset ? 1e30 : this.y + Car.STEP_UP;
     // The car's left is (fz, 0, -fx).
     const y = this.#wheel_y;
     this.#wheels.forEach((w, i) => {
-      y[i] = this.#world.height(this.x + fz * w.x + fx * w.z, this.z - fx * w.x + fz * w.z);
+      // No ground there (over the edge): as it was.
+      y[i] = this.#world.height(this.x + fz * w.x + fx * w.z, this.z - fx * w.x + fz * w.z, y_max) ?? (reset ? this.y : y[i]);
     });
     this.y = (y[0] + y[1] + y[2] + y[3]) / 4;
     this.ground_pitch = Math.atan2((y[0] + y[1] - y[2] - y[3]) / 2, WHEEL_Z * 2);

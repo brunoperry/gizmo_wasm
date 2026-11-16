@@ -64,7 +64,8 @@ export default class DriveCamera {
     const sx = Math.sin(this.#yaw), sz = Math.cos(this.#yaw);
     const target = vec3(car.x - sx * c.distance, car.y + c.height, car.z - sz * c.distance);
     // Uphill behind the car: stay above the ground.
-    target.y = Math.max(target.y, this.#world.height(target.x, target.z) + c.clearance);
+    const ground = this.#world.height(target.x, target.z, car.y + c.height + c.clearance);
+    if (ground !== null) target.y = Math.max(target.y, ground + c.clearance);
     this.#pos = this.#pos
       ? vec3(smooth(this.#pos.x, target.x, 0.05, delta), smooth(this.#pos.y, target.y, 0.1, delta), smooth(this.#pos.z, target.z, 0.05, delta))
       : target;
