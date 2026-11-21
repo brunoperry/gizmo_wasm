@@ -2,7 +2,7 @@
   "meshes": [
     {
       "name": "alges_cruz_quebrada",
-      "url": "./world/alges_cruz_quebrada2.usda",
+      "url": "./world/alges_cruz_quebrada3.usda",
       "preload": true,
       "world": true,
       "to_meters": true
@@ -10,6 +10,13 @@
     {
       "name": "cruz_quebrada_paco_de_arcos",
       "url": "./world/cruz_quebrada_paco_de_arcos.usda",
+      "preload": true,
+      "world": true,
+      "to_meters": true
+    },
+    {
+      "name": "paco_de_arcos_carcavelos",
+      "url": "./world/paco_de_arcos_carcavelos.usda",
       "preload": true,
       "world": true,
       "to_meters": true

@@ -202,6 +202,47 @@ export class Terrain {
   }
 }
 
+// The line the road's height profile runs along: the longest road, carried on
+// at each end by the longest road that starts or ends near there and leads
+// away from it (OSM breaks a road at roundabouts and junctions). `away`:
+// metres; a road whose far end is closer than that to the line runs beside
+// it (the other carriageway, a slip road) and isn't taken.
+function road_spine(roads, away, join = 60) {
+  const length = (pts) => pts.reduce((s, p, k) => (k ? s + Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]) : 0), 0);
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const seg_dist = (p, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+    const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / l2)) : 0;
+    return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t);
+  };
+  const line_dist = (p, pts) => {
+    let d = 1e30;
+    for (let k = 0; k + 1 < pts.length; k++) d = Math.min(d, seg_dist(p, pts[k], pts[k + 1]));
+    return d;
+  };
+  const by_length = roads.map((r) => r.pts).sort((a, b) => length(b) - length(a));
+  let spine = by_length[0];
+  const used = new Set([spine]);
+  for (const at_end of [false, true]) {
+    for (;;) {
+      const end = at_end ? spine.at(-1) : spine[0];
+      // The road's points ordered from the end that joins the spine.
+      let next = null;
+      for (const pts of by_length) {
+        if (used.has(pts)) continue;
+        const ordered = dist(pts[0], end) <= dist(pts.at(-1), end) ? pts : [...pts].reverse();
+        if (dist(ordered[0], end) > join || line_dist(ordered.at(-1), spine) < away) continue;
+        next = { pts, ordered };
+        break;
+      }
+      if (!next) break;
+      used.add(next.pts);
+      spine = at_end ? [...spine, ...next.ordered] : [...[...next.ordered].reverse(), ...spine];
+    }
+  }
+  return spine;
+}
+
 // Builds the height grid.
 //   dem:    read_hgt()
 //   proj:   osm.mjs projection()
@@ -271,8 +312,7 @@ export function build_terrain(dem, proj, bounds, cell, { is_land, floor = 2, smo
   };
   const levelled = new Float64Array(heights);
   if (roads.length) {
-    const length = (pts) => pts.reduce((s, p, k) => (k ? s + Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]) : 0), 0);
-    const main = roads.reduce((best, r) => (length(r.pts) > length(best.pts) ? r : best)).pts;
+    const main = road_spine(roads, blend);
     // The main line's height profile, sampled every 10 m of its length.
     const samples = []; // [distance along the line, relief]
     const starts = [0]; // distance along the line at each of its points

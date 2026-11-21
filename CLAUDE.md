@@ -89,14 +89,16 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Skinning: compare against `UsdSkel.SkinningQuery.ComputeSkinnedPoints` × the skeleton's world transform. The last check matched to about 6e-6.
 
 ## Marginal (`apps/marginal/`)
-- Free driving on the Avenida Marginal (EN6), Algés → Paço de Arcos (~7 km; Cruz Quebrada → Paço de Arcos was added on 2026-11-09). This is a proof of concept.
+- Free driving on the Avenida Marginal (EN6), Algés → Carcavelos (~11 km; Cruz Quebrada → Paço de Arcos was added on 2026-11-09, Paço de Arcos → Carcavelos on 2026-11-21). This is a proof of concept.
   - The user picked: a mixed style (flat palette colors, textured road), free driving first, and chase + hood cameras (C).
 - The world starts out generated from OpenStreetMap, then the user edits it in Maya/Blender (decided 2026-11-10): the `.usda` files are the source of truth and the game takes everything from them (see `WorldMap` below).
   - `tools/fetch_osm.sh` downloads the area into `tools/osm/` (gitignored), in parts: the OSM API only gives areas under 50000 nodes. build_world reads every `.osm` there as one (`read_osm_files`).
   - To add a stretch: add a `get` line to fetch_osm.sh, widen `AREA` and add an entry to `STRETCHES` in build_world, then add the new file to data.json.
+    - The old edge stretch was built with the area's edge closing it (terrain, the last ~50 m of lanes, a sea plane reaching 6 km past it): if it hasn't been edited, delete it so it's built again. On 2026-11-21 that was done to `cruz_quebrada_paco_de_arcos.usda`.
+    - Check that the other stretches don't change: build in a copy with `--force` and compare the ground heights at shared points with the old files (on 2026-11-21: ≤ 4 cm, 0 at the x = -1800 boundary).
   - `tools/osm/alges_cruz_quebrada.osm` is tracked in git (committed before the .gitignore fix); the other .osm files aren't. Fetching again changes it: restore it with git.
   - `node apps/marginal/tools/build_world.mjs` writes:
-    - one `.usda` per stretch (`STRETCHES`: tiles by their west edge): `resources/world/alges_cruz_quebrada.usda` (x ≥ -1800) and `cruz_quebrada_paco_de_arcos.usda`. 200 m tiles, up to 3 meshes per tile: `ground_<tx>_<tz>` (palette: land, water, streets, rails), `road_<tx>_<tz>` (the EN6 lanes, `road` texture), `solid_<tx>_<tz>` (palette: buildings, platforms, seawall, piers), plus `sea_<stretch>` and the `spawn` marker (in the stretch it's in);
+    - one `.usda` per stretch (`STRETCHES`: tiles by their west edge): `resources/world/alges_cruz_quebrada.usda` (x ≥ -1800; the game loads the user's edited `alges_cruz_quebrada3.usda`), `cruz_quebrada_paco_de_arcos.usda` (x ≥ -5200) and `paco_de_arcos_carcavelos.usda` (to the area's west edge, x = -9400). 200 m tiles, up to 3 meshes per tile: `ground_<tx>_<tz>` (palette: land, water, streets, rails), `road_<tx>_<tz>` (the EN6 lanes, `road` texture), `solid_<tx>_<tz>` (palette: buildings, platforms, seawall, piers), plus `sea_<stretch>` and the `spawn` marker (in the stretch it's in);
     - `resources/world/map.json`: only for tools and tests: attribution, area, stretch names, default spawn, the EN6 route (carriageways as point lists);
     - `resources/images/palette.png`, `palette.json` (texel index of each color + `SURFACES`: which colors are asphalt / water), `road.png` (from `tools/textures.mjs`).
   - **It never overwrites** a `.usda` or image that exists (hand edits): delete it or pass `--force`. palette.json is always written.
@@ -107,9 +109,9 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Relief (`tools/terrain.mjs`):
     - Heights come from SRTM (1 arc-second). `tools/fetch_dem.sh` downloads the tile into `tools/dem/` (gitignored); build_world needs it.
     - The ground is a 40 m grid snapped to the tiles, each cell split in two triangles by the diagonal from its north-west corner. The SRTM data over the Tagus is noise, so everything outside the OSM land polygons is set to 2 m (`FLOOR`).
-    - The EN6 is levelled: one smoothed height profile along the longest carriageway; grid nodes within 65 m of any carriageway take it, blending back to the relief by 150 m. Result: slope ≤ 5.9% along the road, ≤ 1.3% across it.
+    - The EN6 is levelled: one smoothed height profile along a spine (`road_spine` in terrain.mjs): the longest carriageway, carried on at each end by the carriageways that continue it. OSM breaks the EN6 at the roundabouts of Santo Amaro (x ≈ -7520) and Carcavelos (x ≈ -8520). Grid nodes within 65 m of any carriageway take the profile, blending back to the relief by 150 m. build_world prints the result: slope ≤ 5.8% along the road, ≤ 2.2% across it (measured at the lane edges).
     - Everything flat (land, water, streets, rails, the EN6 lanes) is cut along the grid (`Terrain.drape`) and laid on the ground's triangles, with the ground's normal and a small lift so layers don't z-fight (`Y` in build_world). Buildings are blocks from below their lowest corner to their height above the highest.
-    - Now 421 meshes and ~78k triangles (5.8 MB usda; 205 meshes and 41k triangles for Algés → Cruz Quebrada).
+    - Now 894 meshes and ~137k triangles as generated (471 meshes and 60k triangles for Paço de Arcos → Carcavelos, 4.5 MB).
   - OSM data quirks the builder handles:
     - The EN6 carriageways are joined by `chain_roads` (osm.mjs): the straightest way at forks, never a sharp turn. The plain `chain_ways` U-turned in Algés, where the two directions meet.
     - Closed coastlines inside the area are islands (there's one off Paço de Arcos). Treating one as an open run turned the whole sea into land.
@@ -141,6 +143,8 @@ A 3D software renderer (the Gizmo engine) plus the apps built on it. There are n
   - Before the sun path and the cover grid, pixel + shadows took 6.9–7.9 ms.
   - Culling saves ~15%; fog costs ~0.05 ms.
 - Checks for a changed world (scripts are not in the repo), in the browser on `marginal.world`: sample `collide` / `on_road` / `height` across the lanes of both carriageways in map.json's `en6` (no walls, slopes), and drive both ways with an autopilot calling `car.update(1/60)` in a loop with `InputController.Keys` set (~5 min of driving each way, 0.2 s to run). On 2026-11-10 (world from the meshes): no hits, ≤ 5.9% slope, both ends reached; the car stops at the sea, buildings and the world's ends.
+  - The autopilot must aim at a point `look` metres ahead *along the line* from the car's projection on it, not at the next point: the route has segments of up to 200 m, and the next point ends up behind the car.
+  - On 2026-11-21 (Algés → Carcavelos): both ends reached, no hits, ~8.3 min each way (4 s to run), 2–3 s off the asphalt (cutting the roundabouts). Lane samples 3 m from the middle touch walls at only two bridges: Caxias (the river's edge between the carriageways) and the Ribeira da Laje in Oeiras (x ≈ -6330; the coastline goes up the river, so the lanes end at the sea on both sides). Frame time with pixel + shadows on the new stretch: 1.0–1.4 ms (headless; 1.6 ms at the start view). Ready ~0.4 s after the page opens.
 - Headless Chrome tests: a key the page doesn't `preventDefault` (letters, Enter) sent through CDP makes the page hidden, which pauses the game. Start with `marginal.engine.play()` and set `InputController.Keys[code]` for those keys.
 
 ## Status and pending work (as of 2026-11-10)

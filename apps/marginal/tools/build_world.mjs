@@ -41,13 +41,14 @@ if (!existsSync(DEM_FILE)) {
 }
 
 // World origin (between Algés and Cruz Quebrada) and the area kept: Algés
-// to the west end of Paço de Arcos.
+// to the west end of Carcavelos.
 const ORIGIN = [38.699, -9.241];
-const AREA = { x0: -5200, x1: 1750, z0: -900, z1: 1400 }; // z0 = north edge
+const AREA = { x0: -9400, x1: 1750, z0: -900, z1: 2900 }; // z0 = north edge
 // The stretches, west to east, each its own .usda file: the tiles whose west
 // edge is at x >= x0 (and < the next stretch's x0). Boundaries on tile edges.
 const STRETCHES = [
-  { name: "cruz_quebrada_paco_de_arcos", x0: -1e9 },
+  { name: "paco_de_arcos_carcavelos", x0: -1e9 },
+  { name: "cruz_quebrada_paco_de_arcos", x0: -5200 },
   { name: "alges_cruz_quebrada", x0: -1800 },
 ];
 const KEEP_DISTANCE = 300; // metres from the EN6: buildings and streets further away are dropped
@@ -606,6 +607,22 @@ console.log(`streets: ${street_count}, buildings: ${building_count} (${building_
 console.log(`coast runs: ${runs.length}, islands: ${islands.length}`);
 const heights = Array.from(terrain.heights);
 console.log(`ground: ${terrain.nx} x ${terrain.nz} cells of ${CELL} m, ${Math.min(...heights)} to ${Math.max(...heights)} m, ${laid} triangles laid on it`);
+{
+  // The EN6's steepest slope, along each carriageway (over 20 m) and across it.
+  let along = 0, across = 0;
+  for (const c of carriageways)
+    for (let i = 0; i + 1 < c.pts.length; i++) {
+      const a = c.pts[i], b = c.pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = left_of(a, b), half = (c.lanes[i] * LANE_WIDTH) / 2, dx = (b[0] - a[0]) / len, dz = (b[1] - a[1]) / len;
+      for (let s = 0; s < len; s += 5) {
+        const p = [a[0] + dx * s, a[1] + dz * s];
+        along = Math.max(along, Math.abs(terrain.height(p[0] + dx * 10, p[1] + dz * 10) - terrain.height(p[0] - dx * 10, p[1] - dz * 10)) / 20);
+        const l = offset(p, n, half), r = offset(p, n, -half);
+        across = Math.max(across, Math.abs(terrain.height(...l) - terrain.height(...r)) / (2 * half));
+      }
+    }
+  console.log(`EN6 slope: up to ${(along * 100).toFixed(1)}% along, ${(across * 100).toFixed(1)}% across`);
+}
 const kinds = Object.keys(KINDS).map((k) => `${mesh_list.filter((m) => m.name.startsWith(k + "_")).length} ${k}`);
 console.log(`meshes: ${mesh_list.length} (${kinds.join(", ")}), triangles: ${tris}`);
 for (const f of files) console.log(`  ${f}`);
